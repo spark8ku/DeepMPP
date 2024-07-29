@@ -1,0 +1,12 @@
+
+CustomGCN: # Network ID
+  name: "CustomGCN1"
+  network: CustomGCN_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GCN"
+  version: "1.0"

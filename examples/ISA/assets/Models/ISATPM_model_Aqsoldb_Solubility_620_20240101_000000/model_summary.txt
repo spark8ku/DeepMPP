@@ -1,0 +1,80 @@
+network(
+  (embedding_rnode_lin): Sequential(
+    (0): Linear(in_features=45, out_features=128, bias=False)
+  )
+  (embedding_inode_lin): Sequential(
+    (0): Linear(in_features=1, out_features=128, bias=False)
+  )
+  (embedding_edge_lin): Sequential(
+    (0): Linear(in_features=8, out_features=128, bias=False)
+  )
+  (ISATconv_PM): ISATconvolution_PM(
+    (r2r): ModuleList(
+      (0-5): 6 x MPNN_layer(
+        (activation): LeakyReLU(negative_slope=0.01)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=384, out_features=128, bias=True)
+      )
+    )
+    (i2i_P): ModuleList(
+      (0-5): 6 x GCN_layer(
+        (activation): LeakyReLU(negative_slope=0.01)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=128, out_features=128, bias=True)
+      )
+    )
+    (d2d_P): distGCN_layer(
+      (activation): LeakyReLU(negative_slope=0.01)
+      (linear): Linear(in_features=128, out_features=128, bias=True)
+      (edge_linear): Linear(in_features=4, out_features=128, bias=True)
+    )
+    (d2score_P): Sequential(
+      (0): Linear(in_features=128, out_features=64, bias=True)
+      (1): LeakyReLU(negative_slope=0.01)
+      (2): Linear(in_features=64, out_features=3, bias=True)
+      (3): LeakyReLU(negative_slope=0.01)
+    )
+    (d2score_pl): Linear(in_features=3, out_features=1, bias=True)
+    (i2i_M): ModuleList(
+      (0-5): 6 x GCN_layer(
+        (activation): LeakyReLU(negative_slope=0.01)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=128, out_features=128, bias=True)
+      )
+    )
+    (d2d_M): distGCN_layer(
+      (activation): LeakyReLU(negative_slope=0.01)
+      (linear): Linear(in_features=128, out_features=128, bias=True)
+      (edge_linear): Linear(in_features=4, out_features=128, bias=True)
+    )
+    (d2score_M): Sequential(
+      (0): Linear(in_features=128, out_features=64, bias=True)
+      (1): LeakyReLU(negative_slope=0.01)
+      (2): Linear(in_features=64, out_features=3, bias=True)
+      (3): LeakyReLU(negative_slope=0.01)
+    )
+    (d2score_ml): Linear(in_features=3, out_features=1, bias=True)
+    (r2i): r2i_layer()
+    (i2d): i2s_layer()
+    (d2r): s2r_Layer()
+    (batch_norm_P): BatchNorm1d(1, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (batch_norm_M): BatchNorm1d(1, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (reduce): SumPooling()
+  )
+  (linears): Linears(
+    (activation): ReLU()
+    (dropout): Dropout(p=0.1, inplace=False)
+    (linears): ModuleList(
+      (0): Linear(in_features=128, out_features=72, bias=True)
+      (1): Linear(in_features=72, out_features=72, bias=True)
+      (2): Linear(in_features=72, out_features=16, bias=True)
+    )
+    (batch_norms): ModuleList()
+  )
+  (out_linear): Linear(in_features=16, out_features=1, bias=True)
+  (reduce): SumPooling()
+  (Bi_Dropout): Bi_Dropout()
+)#params:567683
+network
+None
+learning_time: 2930.1027660369873

@@ -1,0 +1,50 @@
+network(
+  (node_embedding): Linear(in_features=45, out_features=32, bias=True)
+  (GCNs): GCNs(
+    (layers): ModuleList(
+      (0): GCN_layer(
+        (activation): ReLU()
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=32, out_features=32, bias=True)
+      )
+      (1): GCN_layer(
+        (activation): ReLU()
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=32, out_features=32, bias=True)
+      )
+      (2): GCN_layer(
+        (activation): ReLU()
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=32, out_features=32, bias=True)
+      )
+      (3): GCN_layer(
+        (activation): ReLU()
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=32, out_features=32, bias=True)
+      )
+      (4): GCN_layer(
+        (activation): ReLU()
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=32, out_features=32, bias=True)
+      )
+      (5): GCN_layer(
+        (activation): ReLU()
+        (dropout): Dropout(p=0.1, inplace=False)
+        (linear): Linear(in_features=32, out_features=32, bias=True)
+      )
+    )
+  )
+  (Linears): Linears(
+    (activation): ReLU()
+    (dropout): Dropout(p=0.1, inplace=False)
+    (linears): ModuleList(
+      (0): Linear(in_features=32, out_features=16, bias=True)
+      (1): Linear(in_features=16, out_features=16, bias=True)
+      (2): Linear(in_features=16, out_features=1, bias=True)
+    )
+    (batch_norms): ModuleList()
+  )
+)#params:8625
+network
+None
+learning_time: 751.6030685901642

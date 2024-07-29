@@ -1,0 +1,12 @@
+
+torch==2.1.2  ( conda install pytorch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 pytorch-cuda=12.1 -c pytorch -c nvidia)
+dgl-cuda12.1==2.3.0 (conda install -c dglteam/label/th21_cu121 dgl)
+
+pandas
+matplotlib
+tqdm
+prettytable
+rdkit
+scikit_learn
+ipywidgets
+pyyaml

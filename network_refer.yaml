@@ -1,0 +1,214 @@
+
+GCN:
+  name: "GCN1"
+  network: GCN_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GCN"
+  version: "1.0"
+
+GCNwS:
+  name: "GCN1withSolvent"
+  network: GCNwithSolv_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GCN"
+  version: "1.0"
+
+MPNN:
+  name: "MPNN1"
+  network: MPNN_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "MPNN"
+  version: "1.0"
+  
+MPNNwS:
+  name: "MPNN1withSolvent"
+  network: MPNNwithSolv_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "MPNN"
+  version: "1.0"
+
+DMPNN:
+  name: "DMPNN1"
+  network: DMPNN_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "DMPNN"
+  version: "1.0"
+  
+DMPNNwS:
+  name: "DMPNN1withSolvent"
+  network: DMPNNwithSolv_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "DMPNN"
+  version: "1.0"
+
+
+
+AFP:
+  name: "AFP1"
+  network: AFP_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "AFP"
+  version: "1.0"
+  
+AFPwS:
+  name: "AFP1"
+  network: AFPwithSolv_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "AFP"
+  version: "1.0"
+  
+
+
+GAT:
+  name: "GAT1"
+  network: GAT_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GAT"
+  version: "1.0"
+
+GATwS:
+  name: "GAT1withSolvent"
+  network: GATwithSolv_model
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GAT"
+  version: "1.0"
+
+
+ISAT:
+  name: "ISAT1"
+  network: ISAT_model
+  data_manager_module: ISADataManager
+  data_manager_class: ISADataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: ISATrainManager
+  train_manager_class: ISATrainer
+  description: "IGS"
+  version: "1.0"
+    
+
+ISATPN:
+  name: "ISATPN"
+  network: ISATPM_model
+  data_manager_module: ISADataManager
+  data_manager_class: ISADataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: ISATrainManager
+  train_manager_class: ISATrainer
+  description: "IGSPM"
+  version: "1.0"
+    
+GC:
+  name: "GC1"
+  network: GC_model
+  data_manager_module: ISADataManager
+  data_manager_class: ISADataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: ISATrainManager
+  train_manager_class: ISATrainer
+  description: "GC"
+  version: "1.0"
+
+
+  
+MegNet:
+  name: "MegNet1"
+  network: MegNet_model
+  data_manager_module: OverallDataManager
+  data_manager_class: OverallDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "MegNet"
+  version: "1.0"
+
+MegNetwS:
+  name: "MegNet1withSolvent"
+  network: MegNetwithSolv_model
+  data_manager_module: OverallDataManager
+  data_manager_class: OverallDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "MegNet"
+  version: "1.0"
+
+
+ALIGNN:
+  name: "ALIGNN"
+  network: ALIGNN_model
+  data_manager_module: TripletDataManager
+  data_manager_class: TripletDataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GCN"
+  version: "1.0"
+
+ALIGNNwS:
+  name: "ALIGNNwithSolvent"
+  network: ALIGNNwithSolv_model
+  data_manager_module: TripletDataManager
+  data_manager_class: TripletDataManager_withSolv
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GCN"
+  version: "1.0"
+    
