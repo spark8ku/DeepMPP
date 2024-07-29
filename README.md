@@ -11,7 +11,8 @@ This project is a deep learning application designed to predict molecular proper
 $ pip install D4CMPP
 ```
 It is recommended to install dgl and torch first with the appropriate versions for your system.   
-Note that this package was developed with dgl\==0.8.1 and torch\==1.11.9.
+Note that this package was developed with dgl\==2.3.0 and torch\==2.1.2.  
+
 ---
 ## How to start training
 ### Using module
