@@ -1,9 +1,9 @@
 # D4C molecular property prediction
 ![License](https://img.shields.io/badge/license-MIT-red.svg)
-![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-0.3.0-brightgreen.svg)
 
 ## Introduction
-This project is a deep learning application designed to predict molecular properties. The models implemented in this project feature interpretable and hierarchical architectures, including conventional graph convolutional models. D4CMPP is designed to be user-friendly and extremely convenient for deep learning applications.   
+This project is a deep learning application designed to predict molecular properties. The models implemented in this project feature interpretable and hierarchical architectures, including conventional graph convolutional models. D4CMPP is designed to be user-friendly and extremely convenient for deep learning applications.      
 
 ---
 ## Installation
