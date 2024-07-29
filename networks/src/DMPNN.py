@@ -1,8 +1,8 @@
 
 """
-reference https://github.com/gsi-lab/GC-GNN
+This codes are modified from the project "GC-GNN" (https://github.com/gsi-lab/GC-GNN)
+The original codes are under the MIT License. (https://github.com/gsi-lab/GC-GNN/blob/main/networks/DMPNN.py)
 """
-
 import dgl
 import torch
 import torch.nn as nn
