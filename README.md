@@ -83,5 +83,5 @@ ma.predict("CCC")
 This project includes code from the GC-GNN by Adem Rosenkvist Nielsen Aouichaoui (arnaou@kt.dtu.dk), licensed under the MIT License. 
 - URL: [GC-GNN](https://github.com/gsi-lab/GC-GNN/tree/main )
 - files: [AttentiveFP.py](https://github.com/gsi-lab/GC-GNN/blob/main/networks/AttentiveFP.py),  [DMPNN.py](https://github.com/gsi-lab/GC-GNN/blob/main/networks/DMPNN.py)
-- Description: The source codes were adopted from this project
+- Description: The source codes were adopted from this project.   
 Additionally, we acknowledge that various other codes and workflows in this project are based on or inspired by these projects. While many of the original codes were modified, we recognize that the coding style and some workflows were influenced by the corresponding projects.
