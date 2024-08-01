@@ -26,9 +26,11 @@ class MolAnalyzer:
         config = yaml.load(open(os.path.join(model_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
         config['MODEL_PATH'] = model_path
         config['LOAD_PATH'] = model_path
+        self.nm = getattr(importlib.import_module("src.NetworkManager."+config['network_manager_module']),config['network_manager_class'])(config, unwrapper = None)
+        config.update(self.nm.config)
         self.dm = getattr(importlib.import_module("src.DataManager."+config['data_manager_module']),config['data_manager_class'])(config)
-        self.nm = getattr(importlib.import_module("src.NetworkManager."+config['network_manager_module']),config['network_manager_class'])(config, unwrapper = self.dm.unwrapper)
         self.tm = getattr(importlib.import_module("src.TrainManager."+config['train_manager_module']),config['train_manager_class'])(config)
+        self.nm.set_unwrapper(self.dm.unwrapper)
 
 
         # load scaler

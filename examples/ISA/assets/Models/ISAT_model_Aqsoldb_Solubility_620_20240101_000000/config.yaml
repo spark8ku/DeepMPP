@@ -23,8 +23,8 @@ max_epoch: 2000
 min_lr: 1.0e-05
 name: ISAT1
 network: ISAT_model
-network_manager_class: NetworkManager
-network_manager_module: NetworkManager
+network_manager_class: ISANetworkManager
+network_manager_module: ISANetworkManager
 node_dim: 45
 optimizer: Adam
 pin_memory: false

@@ -23,7 +23,7 @@ class OverallGraphdataset(GraphDataset):
     
     def reload(self, data):
         self.graphs, self.node_feature, self.edge_feature, self.graph_feature, self.target, self.smiles = data
-        self.target = torch.concat(self.target)
+        self.target = torch.stack(self.target)
         if self.target.dim() == 1:
             self.target = self.target.unsqueeze(-1)
 

@@ -5,7 +5,7 @@ import itertools
 
 from main import run, set_config
 
-def gridsearch(param_grid):
+def grid_generator(param_grid):
     keys, values = zip(*param_grid.items())
     
     for v in itertools.product(*values):
@@ -61,9 +61,9 @@ def grid_search(hyperparameters, **kwargs):
     
     """
     config0.update(kwargs)
-    config = set_config(config0)
+    config = set_config(**config0)
 
-    for i,hp in enumerate(gridsearch(hyperparameters)):
+    for i,hp in enumerate(grid_generator(hyperparameters)):
         try:
             _config = config.copy()
             _config.update(hp)

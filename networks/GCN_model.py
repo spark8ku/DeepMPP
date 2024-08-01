@@ -15,7 +15,6 @@ class network(nn.Module):
         linear_layers = config.get('linear_layers', 2)
         target_dim = config['target_dim']
 
-
         self.node_embedding = nn.Linear(config['node_dim'], hidden_dim)
 
         self.GCNs = GCNs(hidden_dim, hidden_dim, hidden_dim, nn.ReLU(), gcn_layers, dropout, False, True) 

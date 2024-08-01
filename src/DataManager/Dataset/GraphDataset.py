@@ -21,7 +21,7 @@ class GraphDataset(Dataset):
     # reload the dataset with new data
     def reload(self, data):
         self.graphs, self.node_feature, self.edge_feature, self.target, self.smiles = data
-        self.target = torch.concat(self.target)
+        self.target= torch.stack(self.target,dim=0)
         if self.target.dim() == 1:
             self.target = self.target.unsqueeze(-1)
 
@@ -32,6 +32,7 @@ class GraphDataset(Dataset):
         self.edge_feature = [self.edge_feature[i] for i in idx]
         self.target = self.target[np.array(idx, dtype=int)]
         self.smiles = [self.smiles[i] for i in idx]
+        
 
     @staticmethod
     def collate(samples):
@@ -45,7 +46,6 @@ class GraphDataset(Dataset):
         node_feature = node_feature.float().to(device=device)
         edge_feature = edge_feature.float().to(device=device)
         target = target.float().to(device=device)
-
         return {"graph":batch_graph, "node_feats":node_feature, "edge_feats":edge_feature, "target":target, "smiles":smiles}
 
 class GraphDataset_withSolv(GraphDataset):

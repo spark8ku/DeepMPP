@@ -9,6 +9,7 @@ Conventional attention has no capacity to inform how the feature effects on the 
 
 ![Architecture of ISA](assets/images/img2.png)
 
+### Score Analysis
 For effective analysis, it will be better to see the statistical score distribution, rather than the score of single moleucle. ISA Analyzer supports the simple statistical analysis through the dataset.
 
 ![Example of statistical analysis of ISA analyzer](assets/images/img3.png)

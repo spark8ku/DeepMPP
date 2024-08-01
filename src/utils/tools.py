@@ -1,7 +1,6 @@
 
 from rdkit.Chem.Draw import rdMolDraw2D
 import matplotlib.pyplot as plt
-import matplotlib.image as img
 import rdkit.Chem as Chem
 from rdkit.Chem import Draw
 

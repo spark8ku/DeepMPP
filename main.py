@@ -128,6 +128,8 @@ def check_args(**kwargs):
     if kwargs.get('target',None) is not None:
         if type(kwargs['target']) is not list:
             raise Exception("target should be a list of strings")
+        else:
+            kwargs['target_dim'] = len(kwargs['target'])
     return kwargs
 
 def set_config(**kwargs):    
@@ -165,7 +167,6 @@ def set_config(**kwargs):
     if config.get('LOAD_PATH',None) is None:
         config.update(net_config)
         config['MODEL_PATH'] = PATH.get_model_path(config)
-
     PATH.check_path(config)
     return config
 

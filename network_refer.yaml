@@ -129,8 +129,8 @@ ISAT:
   network: ISAT_model
   data_manager_module: ISADataManager
   data_manager_class: ISADataManager
-  network_manager_module: NetworkManager
-  network_manager_class: NetworkManager
+  network_manager_module: ISANetworkManager
+  network_manager_class: ISANetworkManager
   train_manager_module: ISATrainManager
   train_manager_class: ISATrainer
   description: "IGS"
@@ -142,8 +142,8 @@ ISATPN:
   network: ISATPM_model
   data_manager_module: ISADataManager
   data_manager_class: ISADataManager
-  network_manager_module: NetworkManager
-  network_manager_class: NetworkManager
+  network_manager_module: ISANetworkManager
+  network_manager_class: ISANetworkManager
   train_manager_module: ISATrainManager
   train_manager_class: ISATrainer
   description: "IGSPM"

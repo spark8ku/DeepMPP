@@ -6,8 +6,12 @@ import pandas as pd
 from D4CMPP.src.utils import PATH
     
 class NetworkManager:
+
+    # 현재 작업 디렉토리를 얻어서 PYTHONPATH에 추가
+
     "The class where every operation of the network is managed"
     def __init__(self, config,tf=False, unwrapper=None):
+        
         self.config = config
         self.device = config.get('device', 'cpu')
         self.last_lr = config.get('learning_rate',0.001)
@@ -25,8 +29,13 @@ class NetworkManager:
         self.init_optimizer(config.get('lr_dict',{}) )
         self.init_scheduler()
 
+    def set_unwrapper(self, unwrapper):
+        self.unwrapper = unwrapper
+
     def get_net_module(self):
-        if os.path.exists(os.path.join(self.config['NET_DIR'],self.config['network']+'.py')):
+        if os.path.exists(self.config['MODEL_PATH']+"/network.py"):
+            net_path = self.config['MODEL_PATH']+"/network"
+        elif os.path.exists(os.path.join(self.config['NET_DIR'],self.config['network']+'.py')):
             net_path = os.path.join(self.config['NET_DIR'],self.config['network'])
 
         if os.path.isabs(net_path) and 'D4CMPP' in net_path:
