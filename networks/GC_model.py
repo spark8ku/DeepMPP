@@ -33,8 +33,9 @@ class network(nn.Module):
         self.GCconv = GCconvolution(hidden_dim, hidden_dim, hidden_dim, nn.LeakyReLU(), gcn_layers, dropout, False, True, 0.1)
         
         self.reduce = SumPooling()
-        self.batch_norm = nn.BatchNorm1d(1)
         self.linear = nn.Linear(1,1)
+        self.normalize = nn.LayerNorm(1)
+        self.func_f = getattr(nn, config.get('func_f', 'Tanh'))()
     
     def forward(self, graph, r_node, i_node, r_edge, d_edge,**kargs):
         r_node = r_node.float()
@@ -51,7 +52,10 @@ class network(nn.Module):
         score = self.GCconv(graph, r_node, r_edge, i_node, d_edge)
         
         h = self.reduce(dot_graph, score)
-
+        h = self.normalize(h)
+        h = self.func_f(h)
+        h = self.linear(h)
+        
         if kargs.get('get_score',False):
             return {'prediction':h, 'positive':score}
 

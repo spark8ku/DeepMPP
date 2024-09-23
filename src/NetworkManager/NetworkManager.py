@@ -38,13 +38,20 @@ class NetworkManager:
         elif os.path.exists(os.path.join(self.config['NET_DIR'],self.config['network']+'.py')):
             net_path = os.path.join(self.config['NET_DIR'],self.config['network'])
 
-        if os.path.isabs(net_path) and 'D4CMPP' in net_path:
+        if os.path.isabs(net_path) and '/D4CMPP/' in net_path:
             net_path = 'D4CMPP'+net_path.split('D4CMPP')[-1]
         elif os.path.isabs(net_path):
-            raise Exception("Absolute path is not allowed for the network module")
+            pwd = os.getcwd()
+            print('@',pwd)
+            print('@',net_path)
+            if pwd in net_path:
+                net_path = net_path.replace(pwd+'/','')
+            else:
+                raise Exception("Absolute path is not allowed for the network module")
         
         if net_path.startswith('./'):
             net_path=net_path.replace('./','')
+        print(net_path)
         return importlib.import_module(net_path.replace('/','.')).network
 
     # Initialize the network

@@ -19,15 +19,39 @@ from .MolAnalyzer import MolAnalyzer
 
 class ISAAnalyzer(MolAnalyzer):
     """The class for additional tasks after the training. only for ISA type models"""
-    def __init__(self, model_path, save_result = True):
+    def __init__(self, model_path, save_result = False):
         super().__init__(model_path , save_result)
 
         self.data_keys = ['prediction', 'positive', 'negative', 'feature_P', 'feature_N','fragments']
         self.for_pickle = ['fragments', ]
-
         if getattr(self.tm,'get_score',None) is None:
             raise ValueError("This model does not support ISAAnalyzer.")
+        self.check_score_by_group()
     
+
+    def check_score_by_group(self):
+        if getattr(self.dm.gg,'sculptor',None) is None:
+            self.is_score_by_group = True
+        else:
+            temp_smiles='CC(C)(C)OC(=O)C1=CC=CC=C1C(=O)O'
+            
+            test_loader,_ = self.prepare_temp_data([temp_smiles])
+            temp_score = self.tm.get_score(self.nm, test_loader)
+
+            if 'positive' in temp_score:
+                temp_score['positive'] = temp_score['positive'].detach().cpu().numpy()
+                if temp_score['positive'].shape[0] == len(self.get_fragment(temp_smiles)):
+                    self.is_score_by_group = True
+                elif temp_score['positive'].shape[0] == Chem.MolFromSmiles(temp_smiles).GetNumAtoms():
+                    self.is_score_by_group = False
+                else:
+                    raise ValueError('The length of the score and the number of fragments do not match.')
+            else:
+                raise ValueError('The score is not calculated properly.')
+
+
+
+
     # get the attention score of the given smiles
     def get_score(self, smiles):
         "get the attention score of the given smiles by its subgroups"
@@ -176,8 +200,8 @@ class ISAAnalyzer(MolAnalyzer):
             self.save_data(smiles, result)
         return valid_smiles['compound'], results
     
-    def plot_score(self, smiles, atom_with_index=False, score_scaler=lambda x:x, ticks= [0,0.25,0.5,0.75,1], 
-                   rot=0, locate='right',figsize=1, only_total=False, with_colorbar=True):
+    def plot_score(self, smiles ,*, atom_with_index=False, score_scaler=lambda x:x, ticks= [0,0.25,0.5,0.75,1],
+                   rot=0, line_width=2.0, locate='right',figsize=1, only_total=False, with_colorbar=True,):
         """
         This function plots the attention score of the given smiles by its subgroups.
 
@@ -200,12 +224,12 @@ class ISAAnalyzer(MolAnalyzer):
         score = self.get_score(smiles)
         mol = Chem.MolFromSmiles(smiles)
         
-        colors = [(0, 'red'),(0.5,'white'),  (1, 'blue')]
+        colors = [(0, 'orangered'),(0.5,'white'),  (1, 'royalblue')]
         cmap_name = 'my_custom_colormap'
         cm = LinearSegmentedColormap.from_list(cmap_name, colors)
 
         def plot(ax,mol, score, title,figsize=1):
-            png_bytes= showAtomHighlight(mol, score, cm, atom_with_index,rot,figsize=figsize)
+            png_bytes= showAtomHighlight(mol, score, cm, atom_with_index,rot,line_width,figsize=figsize)
             image = Image.open(io.BytesIO(png_bytes))
             ax.imshow(image)
             ax.axis('off')
@@ -223,6 +247,7 @@ class ISAAnalyzer(MolAnalyzer):
             tot_score=(1+pos_score-neg_score)/2
             tot_score = _score_scaler(tot_score)
             score['total'] = tot_score
+
             if only_total:
                 fig, ax = plt.subplots(1, 1, figsize=(16, 11))
                 plot(ax,mol, tot_score, ' ',figsize=figsize)
@@ -260,6 +285,7 @@ class ISAAnalyzer(MolAnalyzer):
                 cb = plt.colorbar(plt.cm.ScalarMappable(cmap=cm), ax=ax, shrink=0.5, pad=0)
                 cb.set_ticks([0,0.25,0.5,0.75,1])
                 cb.set_ticklabels(ticks)
+                cb.ax.tick_params(labelsize=20)
         else:
             score['positive'] = _score_scaler(score['positive'])
             score['positive'] = self.get_atom_score(smiles,score['positive'])  
@@ -269,6 +295,7 @@ class ISAAnalyzer(MolAnalyzer):
                 cb = plt.colorbar(plt.cm.ScalarMappable(cmap=cm), ax=ax, shrink=0.7)
                 cb.set_ticks([0,0.25,0.5,0.75,1])
                 cb.set_ticklabels(ticks)
+                cb.ax.tick_params(labelsize=20)
         plt.show()
         return score
                     
@@ -429,6 +456,8 @@ class ISAAnalyzer(MolAnalyzer):
         return score
     
     def get_group_score(self, smiles, score, frag=None):
+        if self.is_score_by_group:
+            return score
         if frag is None:
             frag = self.get_fragment(smiles, get_index=True)
         if len(frag) < score.shape[0]:
@@ -463,239 +492,239 @@ class ISAAnalyzer(MolAnalyzer):
         return group_score
 
     
-    def _plot_feature(self,smiles_list, highlight=None, label=None):
-        feats_result = self.get_features(smiles_list)
-        score_result = self.get_scores(smiles_list)
-        frags_list = {}
-        frags_name_list = {}
-        for smiles in smiles_list:
-            frags_list[smiles]=[f.smiles if f.name != 'Phenyl' else '*c1ccccc1' for f in self.get_fragment(smiles, get_index=False)]
-            frags_name_list[smiles]=[f.name for f in self.get_fragment(smiles, get_index=False)]
-        feats= {'feature_P':[],'feature_N':[],'positive':[],'negative':[],'fragments':[],'smiles':[]}
-        for smiles in feats_result:
-            if smiles not in score_result.keys():
-                continue
-            for k in feats.keys():
-                if not (smiles in feats_result and smiles in score_result):
-                    continue
-                if k in feats_result[smiles]:
-                    feats[k].append(feats_result[smiles][k])
-                if k in score_result[smiles]:
-                    feats[k].append(score_result[smiles][k])
-            feats['fragments'].append(frags_list[smiles])
-            feats['smiles'].append([smiles]*len(frags_list[smiles]))
+    # def _plot_feature(self,smiles_list, highlight=None, label=None):
+    #     feats_result = self.get_features(smiles_list)
+    #     score_result = self.get_scores(smiles_list)
+    #     frags_list = {}
+    #     frags_name_list = {}
+    #     for smiles in smiles_list:
+    #         frags_list[smiles]=[f.smiles if f.name != 'Phenyl' else '*c1ccccc1' for f in self.get_fragment(smiles, get_index=False)]
+    #         frags_name_list[smiles]=[f.name for f in self.get_fragment(smiles, get_index=False)]
+    #     feats= {'feature_P':[],'feature_N':[],'positive':[],'negative':[],'fragments':[],'smiles':[]}
+    #     for smiles in feats_result:
+    #         if smiles not in score_result.keys():
+    #             continue
+    #         for k in feats.keys():
+    #             if not (smiles in feats_result and smiles in score_result):
+    #                 continue
+    #             if k in feats_result[smiles]:
+    #                 feats[k].append(feats_result[smiles][k])
+    #             if k in score_result[smiles]:
+    #                 feats[k].append(score_result[smiles][k])
+    #         feats['fragments'].append(frags_list[smiles])
+    #         feats['smiles'].append([smiles]*len(frags_list[smiles]))
 
-            for i in range(len(frags_list[smiles])):
-                if frags_list[smiles][i] =="c1ccccc1" and score_result[smiles]['positive'][i]>0.7:
-                    print(smiles, score_result[smiles]['positive'][i])
-        return 
-        for k in feats.keys():
-            feats[k] = np.concatenate(feats[k],axis=0)
+    #         for i in range(len(frags_list[smiles])):
+    #             if frags_list[smiles][i] =="c1ccccc1" and score_result[smiles]['positive'][i]>0.7:
+    #                 print(smiles, score_result[smiles]['positive'][i])
+    #     return 
+    #     for k in feats.keys():
+    #         feats[k] = np.concatenate(feats[k],axis=0)
 
-        # import umap
-        # fit = umap.UMAP(
-        #     n_neighbors=50,
-        #     min_dist=.1,
-        #     n_components=2,
-        #     metric='euclidean'
-        # )
-        # reduced_data = fit.fit_transform(feats['feature_P'])
-        # fig = plt.figure(figsize=(6,6))
-        # ax = fig.add_subplot(111)
-        # ax.scatter(reduced_data[:,0],reduced_data[:,1],c = feats['positive'],alpha=0.3,s=4)
-        # plt.show()
+    #     import umap
+    #     fit = umap.UMAP(
+    #         n_neighbors=50,
+    #         min_dist=.1,
+    #         n_components=2,
+    #         metric='euclidean'
+    #     )
+    #     reduced_data = fit.fit_transform(feats['feature_P'])
+    #     fig = plt.figure(figsize=(6,6))
+    #     ax = fig.add_subplot(111)
+    #     ax.scatter(reduced_data[:,0],reduced_data[:,1],c = feats['positive'],alpha=0.3,s=4)
+    #     plt.show()
 
 
-        from sklearn.manifold import TSNE
-        from matplotlib.patches import Patch
+    #     from sklearn.manifold import TSNE
+    #     from matplotlib.patches import Patch
 
-        if highlight:
-            col_p = np.zeros((feats['positive'].shape[0],4))
-            col_p[:]=0.85
-            col_n = np.zeros((feats['positive'].shape[0],4))
-            col_n[:]=0.85
-            if type(highlight) is str:
-                highlight = [highlight]
-            cmap= plt.cm.tab20
-            legend_list = []
-            for i,h in enumerate(highlight):
-                if i>=15: j=i+1
-                else: j=i
-                col_p[feats['fragments']==h] = cmap(j)
-                col_n[feats['fragments']==h] = cmap(j)
-                legend_list.append(Patch(facecolor=cmap(j), edgecolor='black',label=label[i] if label else h))
-            legend_list.append(Patch(facecolor='lightgray', edgecolor='black',label='others'))
-        else:
-            col_p = (1-feats['positive']).flatten()
-            col_n = (1-feats['negative']).flatten()
-            cmap='bwr'
+    #     if highlight:
+    #         col_p = np.zeros((feats['positive'].shape[0],4))
+    #         col_p[:]=0.85
+    #         col_n = np.zeros((feats['positive'].shape[0],4))
+    #         col_n[:]=0.85
+    #         if type(highlight) is str:
+    #             highlight = [highlight]
+    #         cmap= plt.cm.tab20
+    #         legend_list = []
+    #         for i,h in enumerate(highlight):
+    #             if i>=15: j=i+1
+    #             else: j=i
+    #             col_p[feats['fragments']==h] = cmap(j)
+    #             col_n[feats['fragments']==h] = cmap(j)
+    #             legend_list.append(Patch(facecolor=cmap(j), edgecolor='black',label=label[i] if label else h))
+    #         legend_list.append(Patch(facecolor='lightgray', edgecolor='black',label='others'))
+    #     else:
+    #         col_p = (1-feats['positive']).flatten()
+    #         col_n = (1-feats['negative']).flatten()
+    #         cmap='bwr'
 
     
-        tsne_p = TSNE(n_components=2,perplexity=20., early_exaggeration=8., random_state=42) 
-        reduced_data = tsne_p.fit_transform(feats['feature_P'])
-        fig = plt.figure(figsize=(6,6))
-        ax = fig.add_subplot(111)
-        if highlight:
-            ax.legend(handles=legend_list,loc = 'center left', bbox_to_anchor=(1, 0.5))
-        ax.scatter(reduced_data[:,0],reduced_data[:,1],c = col_p, alpha=0.3,s=3)
-        ax.set_axis_off()
-        ax.set_title('Positive')
-        plt.show()
+    #     tsne_p = TSNE(n_components=2,perplexity=20., early_exaggeration=8., random_state=42) 
+    #     reduced_data = tsne_p.fit_transform(feats['feature_P'])
+    #     fig = plt.figure(figsize=(6,6))
+    #     ax = fig.add_subplot(111)
+    #     if highlight:
+    #         ax.legend(handles=legend_list,loc = 'center left', bbox_to_anchor=(1, 0.5))
+    #     ax.scatter(reduced_data[:,0],reduced_data[:,1],c = col_p, alpha=0.3,s=3)
+    #     ax.set_axis_off()
+    #     ax.set_title('Positive')
+    #     plt.show()
 
-        tsne_n = TSNE(n_components=2,perplexity=20., early_exaggeration=8., random_state=42) 
-        reduced_data = tsne_n.fit_transform(feats['feature_N'])
-
-
-        fig = plt.figure(figsize=(6,6))
-        ax = fig.add_subplot(111)
-        if highlight:
-            ax.legend(handles=legend_list,loc = 'center left', bbox_to_anchor=(1, 0.5))
-        ax.scatter(reduced_data[:,0],reduced_data[:,1],c = col_n, alpha=0.3,s=3)
-        ax.set_axis_off()
-        ax.set_title('Negative')
-        plt.show()
-
-    def _analyze_synergy(self,smiles,STATE='positive'):
-        g= self.dm.gg.get_graph(smiles)
-        frag = self.get_fragment(smiles, get_index=True)
-        def subgroup_combination(g):
-            from itertools import combinations
-            n = g.num_nodes('d_nd')
-            numbers = list(range(n))
-            all_combinations = []
-            for r in range(len(numbers) + 1):
-                all_combinations.extend(combinations(numbers, r))
-
-            sub_comb= []
-            remains = []
-            for i in all_combinations:
-                if len(i) == n: continue
-                _g=g.clone()
-                _g.remove_nodes(i,ntype='d_nd')
-                mask = []
-                for k in i:
-                    for f in frag[k]:
-                        mask.append(f)
-                _g.remove_nodes(mask,ntype='i_nd')
-                _g.remove_nodes(mask,ntype='r_nd')
-                sub_comb.append(_g)
-                result = set(numbers)-set(i)
-                result = list(result)
-                result.sort()
-                remains.append(tuple(result))
-            return sub_comb, remains
+    #     tsne_n = TSNE(n_components=2,perplexity=20., early_exaggeration=8., random_state=42) 
+    #     reduced_data = tsne_n.fit_transform(feats['feature_N'])
 
 
-        gs,remains = subgroup_combination(g)
-        self.dm.init_temp_data([smiles]*len(gs),graphs = gs)
-        test_loader = self.dm.get_temp_Dataloader()
-        scores = self.tm.get_score(self.nm, test_loader)
+    #     fig = plt.figure(figsize=(6,6))
+    #     ax = fig.add_subplot(111)
+    #     if highlight:
+    #         ax.legend(handles=legend_list,loc = 'center left', bbox_to_anchor=(1, 0.5))
+    #     ax.scatter(reduced_data[:,0],reduced_data[:,1],c = col_n, alpha=0.3,s=3)
+    #     ax.set_axis_off()
+    #     ax.set_title('Negative')
+    #     plt.show()
 
-        count=0
-        results = {}
-        def reorder_lists(lst):
-            flattened = [num for sublist in lst for num in sublist]
-            sorted_numbers = sorted(flattened)
+    # def _analyze_synergy(self,smiles,STATE='positive'):
+    #     g= self.dm.gg.get_graph(smiles)
+    #     frag = self.get_fragment(smiles, get_index=True)
+    #     def subgroup_combination(g):
+    #         from itertools import combinations
+    #         n = g.num_nodes('d_nd')
+    #         numbers = list(range(n))
+    #         all_combinations = []
+    #         for r in range(len(numbers) + 1):
+    #             all_combinations.extend(combinations(numbers, r))
+
+    #         sub_comb= []
+    #         remains = []
+    #         for i in all_combinations:
+    #             if len(i) == n: continue
+    #             _g=g.clone()
+    #             _g.remove_nodes(i,ntype='d_nd')
+    #             mask = []
+    #             for k in i:
+    #                 for f in frag[k]:
+    #                     mask.append(f)
+    #             _g.remove_nodes(mask,ntype='i_nd')
+    #             _g.remove_nodes(mask,ntype='r_nd')
+    #             sub_comb.append(_g)
+    #             result = set(numbers)-set(i)
+    #             result = list(result)
+    #             result.sort()
+    #             remains.append(tuple(result))
+    #         return sub_comb, remains
+
+
+    #     gs,remains = subgroup_combination(g)
+    #     self.dm.init_temp_data([smiles]*len(gs),graphs = gs)
+    #     test_loader = self.dm.get_temp_Dataloader()
+    #     scores = self.tm.get_score(self.nm, test_loader)
+
+    #     count=0
+    #     results = {}
+    #     def reorder_lists(lst):
+    #         flattened = [num for sublist in lst for num in sublist]
+    #         sorted_numbers = sorted(flattened)
             
-            reordered = []
-            for sublist in lst:
-                reordered.append([sorted_numbers.index(i) for i in sublist])
+    #         reordered = []
+    #         for sublist in lst:
+    #             reordered.append([sorted_numbers.index(i) for i in sublist])
             
-            return reordered
+    #         return reordered
         
-        for i in range(len(gs)):
-            result={}
-            result['prediction']=scores['prediction'][i].detach().cpu().numpy()
-            remain_frag = reorder_lists([frag[j] for j in remains[i]])
-            if not self.is_score_by_group:
-                atom_num = sum([len(f) for f in remain_frag])
-                result[STATE] = self.atom_score2group_score(smiles,scores[STATE][count:count+atom_num].detach().cpu().numpy(),remain_frag)
-                count+=atom_num
-            else:
-                result[STATE] = scores[STATE][count:count+len(remain_frag)].detach().cpu().numpy()
-                count+=len(frag)
-            results[remains[i]] = result
+    #     for i in range(len(gs)):
+    #         result={}
+    #         result['prediction']=scores['prediction'][i].detach().cpu().numpy()
+    #         remain_frag = reorder_lists([frag[j] for j in remains[i]])
+    #         if not self.is_score_by_group:
+    #             atom_num = sum([len(f) for f in remain_frag])
+    #             result[STATE] = self.atom_score2group_score(smiles,scores[STATE][count:count+atom_num].detach().cpu().numpy(),remain_frag)
+    #             count+=atom_num
+    #         else:
+    #             result[STATE] = scores[STATE][count:count+len(remain_frag)].detach().cpu().numpy()
+    #             count+=len(frag)
+    #         results[remains[i]] = result
             
-        from math import factorial
+    #     from math import factorial
 
-        synergy_matrix = np.zeros((len(frag),len(frag)))
-        for i in range(len(frag)):
-            for j in range(len(frag)):
-                if i==j:
-                    _remain = [r for r in remains if i in r]
-                    val= np.sum([factorial(len(r)-1)*factorial(len(frag)-len(r))/factorial(len(frag))*results[r][STATE][r.index(i)] for r in _remain])
-                    synergy_matrix[i][j] = val
-                else:
-                    i_remain = [r for r in remains if j not in r and i in r]
-                    vals = []
-                    for r in i_remain:
-                        ij_remain = list(r)
-                        ij_remain.append(j)
-                        ij_remain.sort()
-                        ij_remain = tuple(ij_remain)
-                        vals.append(factorial(len(r))*factorial(len(frag)-len(r)-1)/factorial(len(frag))*(results[ij_remain][STATE][ij_remain.index(i)]-results[r][STATE][r.index(i)]))
-                    val = np.sum(vals)
-                    synergy_matrix[i][j] = val
+    #     synergy_matrix = np.zeros((len(frag),len(frag)))
+    #     for i in range(len(frag)):
+    #         for j in range(len(frag)):
+    #             if i==j:
+    #                 _remain = [r for r in remains if i in r]
+    #                 val= np.sum([factorial(len(r)-1)*factorial(len(frag)-len(r))/factorial(len(frag))*results[r][STATE][r.index(i)] for r in _remain])
+    #                 synergy_matrix[i][j] = val
+    #             else:
+    #                 i_remain = [r for r in remains if j not in r and i in r]
+    #                 vals = []
+    #                 for r in i_remain:
+    #                     ij_remain = list(r)
+    #                     ij_remain.append(j)
+    #                     ij_remain.sort()
+    #                     ij_remain = tuple(ij_remain)
+    #                     vals.append(factorial(len(r))*factorial(len(frag)-len(r)-1)/factorial(len(frag))*(results[ij_remain][STATE][ij_remain.index(i)]-results[r][STATE][r.index(i)]))
+    #                 val = np.sum(vals)
+    #                 synergy_matrix[i][j] = val
 
-        shaps = np.zeros(len(frag))
-        for i in range(len(frag)):
-            _remain = [r for r in remains if i not in r]
-            valse = []
-            for r in _remain:
-                i_remain = list(r)
-                i_remain.append(i)
-                i_remain.sort()
-                i_remain = tuple(i_remain)
-                valse.append(factorial(len(r))*factorial(len(frag)-len(r)-1)/factorial(len(frag))*(results[i_remain]['prediction']-results[r]['prediction']) )
-            shaps[i] = np.sum(valse)
+    #     shaps = np.zeros(len(frag))
+    #     for i in range(len(frag)):
+    #         _remain = [r for r in remains if i not in r]
+    #         valse = []
+    #         for r in _remain:
+    #             i_remain = list(r)
+    #             i_remain.append(i)
+    #             i_remain.sort()
+    #             i_remain = tuple(i_remain)
+    #             valse.append(factorial(len(r))*factorial(len(frag)-len(r)-1)/factorial(len(frag))*(results[i_remain]['prediction']-results[r]['prediction']) )
+    #         shaps[i] = np.sum(valse)
             
-        min_value = np.min(synergy_matrix - 0.5 * np.eye(len(frag)))
-        max_value = np.max(synergy_matrix - 0.5 * np.eye(len(frag)))
-        top = mpl.colormaps.get_cmap('Oranges_r')
-        bottom = mpl.colormaps.get_cmap('Blues')
+    #     min_value = np.min(synergy_matrix - 0.5 * np.eye(len(frag)))
+    #     max_value = np.max(synergy_matrix - 0.5 * np.eye(len(frag)))
+    #     top = mpl.colormaps.get_cmap('Oranges_r')
+    #     bottom = mpl.colormaps.get_cmap('Blues')
 
-        synergy_matrix=synergy_matrix.T
-        newcolors = np.vstack((top(np.linspace(0, 1, np.abs(int(min_value*200)))),
-                            bottom(np.linspace(0, 1, np.abs(int(max_value*200))))))
-        newcmp = ListedColormap(newcolors, name='OrangeBlue')
-        fig, ax = plt.subplots()
-        fig.set_size_inches(0.93*len(synergy_matrix),0.9*len(synergy_matrix))
-        im = ax.imshow(synergy_matrix-0.5*np.eye(len(frag)),cmap=newcmp)
-        for i in range(synergy_matrix.shape[0]):
-            for j in range(synergy_matrix.shape[1]):
-                if np.abs(synergy_matrix[i, j]) <= 0.01:
-                    continue
-                text = ax.text(j, i, f"{synergy_matrix[i, j]:.2f}",
-                            ha="center", va="center", color="w",fontsize=16)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        plt.show()
-        # return frag, synergy_matrix, shaps
+    #     synergy_matrix=synergy_matrix.T
+    #     newcolors = np.vstack((top(np.linspace(0, 1, np.abs(int(min_value*200)))),
+    #                         bottom(np.linspace(0, 1, np.abs(int(max_value*200))))))
+    #     newcmp = ListedColormap(newcolors, name='OrangeBlue')
+    #     fig, ax = plt.subplots()
+    #     fig.set_size_inches(0.93*len(synergy_matrix),0.9*len(synergy_matrix))
+    #     im = ax.imshow(synergy_matrix-0.5*np.eye(len(frag)),cmap=newcmp)
+    #     for i in range(synergy_matrix.shape[0]):
+    #         for j in range(synergy_matrix.shape[1]):
+    #             if np.abs(synergy_matrix[i, j]) <= 0.01:
+    #                 continue
+    #             text = ax.text(j, i, f"{synergy_matrix[i, j]:.2f}",
+    #                         ha="center", va="center", color="w",fontsize=16)
+    #     ax.set_xticks([])
+    #     ax.set_yticks([])
+    #     plt.show()
+    #     # return frag, synergy_matrix, shaps
 
-        transform = np.zeros((5,5))
-        transform[0,0] = 1
-        transform[1,4] = 1
-        transform[2,3] = 1
-        transform[3,2] = 1
-        transform[4,1] = 1
-        synergy_matrix= np.dot(np.dot(transform,synergy_matrix),transform.T)
-        newcolors = np.vstack((top(np.linspace(0, 1, np.abs(int(min_value*200)))),
-                            bottom(np.linspace(0, 1, np.abs(int(max_value*200))))))
-        newcmp = ListedColormap(newcolors, name='OrangeBlue')
-        fig, ax = plt.subplots()
-        fig.set_size_inches(0.93*len(synergy_matrix),0.9*len(synergy_matrix))
-        im = ax.imshow(synergy_matrix-0.5*np.eye(len(frag)),cmap=newcmp)
-        for i in range(synergy_matrix.shape[0]):
-            for j in range(synergy_matrix.shape[1]):
-                if np.abs(synergy_matrix[i, j]) <= 0.01:
-                    continue
-                text = ax.text(j, i, f"{synergy_matrix[i, j]:.2f}",
-                            ha="center", va="center", color="w",fontsize=16)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        plt.show()
+    #     transform = np.zeros((5,5))
+    #     transform[0,0] = 1
+    #     transform[1,4] = 1
+    #     transform[2,3] = 1
+    #     transform[3,2] = 1
+    #     transform[4,1] = 1
+    #     synergy_matrix= np.dot(np.dot(transform,synergy_matrix),transform.T)
+    #     newcolors = np.vstack((top(np.linspace(0, 1, np.abs(int(min_value*200)))),
+    #                         bottom(np.linspace(0, 1, np.abs(int(max_value*200))))))
+    #     newcmp = ListedColormap(newcolors, name='OrangeBlue')
+    #     fig, ax = plt.subplots()
+    #     fig.set_size_inches(0.93*len(synergy_matrix),0.9*len(synergy_matrix))
+    #     im = ax.imshow(synergy_matrix-0.5*np.eye(len(frag)),cmap=newcmp)
+    #     for i in range(synergy_matrix.shape[0]):
+    #         for j in range(synergy_matrix.shape[1]):
+    #             if np.abs(synergy_matrix[i, j]) <= 0.01:
+    #                 continue
+    #             text = ax.text(j, i, f"{synergy_matrix[i, j]:.2f}",
+    #                         ha="center", va="center", color="w",fontsize=16)
+    #     ax.set_xticks([])
+    #     ax.set_yticks([])
+    #     plt.show()
 
-        return frag, synergy_matrix, shaps
+    #     return frag, synergy_matrix, shaps
 
             
 
@@ -703,7 +732,7 @@ class ISAAnalyzer(MolAnalyzer):
 
 
 
-def showAtomHighlight(mol,score,color_map,atom_with_index=True,rot=0,figsize=1):
+def showAtomHighlight(mol,score,color_map,atom_with_index=True,rot=0,line_width=1.0,figsize=1):
     if type(mol) is str:
         mol = Chem.MolFromSmiles(mol)
     atom_num = mol.GetNumAtoms()
@@ -732,6 +761,7 @@ def showAtomHighlight(mol,score,color_map,atom_with_index=True,rot=0,figsize=1):
     d = rdMolDraw2D.MolDraw2DCairo(int(1000*figsize), int(800*figsize))
     dopts = d.drawOptions()
     dopts.rotate = rot
+    dopts.bondLineWidth = line_width
     d.DrawMolecule(mol,highlightAtoms = hit_ats, highlightAtomColors=hit_ats_colormap,
                    highlightBonds=hit_bonds, highlightBondColors=hit_bonds_colormap)
 

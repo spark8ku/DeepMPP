@@ -44,8 +44,7 @@ class Trainer():
             print("Forced termination")
         except Exception as e:
             self.train_error = e
-            raise Exception()
-        
+            raise Exception()        
         
         network_manager.load_best_checkpoint()
         self.run_time = time.time()-start_time
@@ -108,3 +107,20 @@ class Trainer():
                 smiles_list+=x['smiles']
                 solvent_list+=x.get('solv_smiles',[""]*y_pred.shape[0])
         return torch.cat(score_list, dim=0), torch.cat(target_list, dim=0), smiles_list, solvent_list
+
+    def get_score(self, network_manager, loader):
+        "Provide the score of the model. The model which is used for the training should contains the implementation of 'get_score'."
+        network_manager.eval()
+        pred_result = {}
+        with torch.no_grad():
+            for loader in tqdm(loader, desc='Calculating scores'):     
+                torch.autograd.set_detect_anomaly(False)
+                y_pred = network_manager.step(loader,get_score=True)
+                if type(y_pred) is not dict:
+                    y_pred = {'prediction':y_pred}
+                if pred_result:
+                    for key in y_pred:
+                        pred_result[key] = torch.cat([pred_result[key],y_pred[key]], dim=0)
+                else:
+                    pred_result = y_pred
+        return pred_result

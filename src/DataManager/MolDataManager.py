@@ -116,7 +116,7 @@ class MolDataManager:
             else:
                 graphgenerator = self.gg
             try:
-                g=graphgenerator.get_graph(smi)
+                g=graphgenerator.get_graph(smi, **self.config)
             except Exception as e:
                 g = graphgenerator.get_empty_graph() # save the empty graph instead of the failed graph
                 invalids.append(pd.DataFrame({'smiles':[smi],'type':[col],'reason':[str(e)]}))

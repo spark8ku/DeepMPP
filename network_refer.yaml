@@ -97,6 +97,19 @@ AFPwS:
   description: "AFP"
   version: "1.0"
   
+AGC:
+  name: "AGC1"
+  network: AGC_model
+  data_manager_module: ISADataManager
+  data_manager_class: ISADataManager
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: ISATrainManager
+  train_manager_class: ISATrainer
+  description: "AGC"
+  version: "1.0"
+  max_dist: 1
+  
 
 
 GAT:

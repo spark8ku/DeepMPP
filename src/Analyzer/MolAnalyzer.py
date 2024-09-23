@@ -123,11 +123,13 @@ class MolAnalyzer:
         file_name = self.get_file_name(smiles, key)
         if not os.path.exists(os.path.join(self.data_path, file_name)):
             return None
-        
-        with open(os.path.join(self.data_path, file_name), 'rb') as f:
-            if key in self.for_pickle:
-                return pickle.load(f)
-            return np.load(f)
+        try:
+            with open(os.path.join(self.data_path, file_name), 'rb') as f:
+                if key in self.for_pickle:
+                    return pickle.load(f)
+                return np.load(f)
+        except:
+            return None
         
     def get_file_name(self, smiles, key):
         m = hashlib.sha256()

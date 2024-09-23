@@ -10,7 +10,6 @@ class ISANetworkManager(NetworkManager):
 
     # Initialize the network
     def init_network(self):
-
         super().init_network()
         os.system(f"""cp "{self.config["FRAG_REF"]} "{self.config["MODEL_PATH"]}/functional_group.csv" """)
 

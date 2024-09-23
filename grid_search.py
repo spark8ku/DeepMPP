@@ -3,7 +3,7 @@ import os
 import traceback
 import itertools
 
-from main import run, set_config
+from _main import run, set_config
 
 def grid_generator(param_grid):
     keys, values = zip(*param_grid.items())

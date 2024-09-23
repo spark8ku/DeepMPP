@@ -72,7 +72,7 @@ class TripletGraphGenerator(MolGraphGenerator):
             g.edges['triplet'].data['f'] = torch.stack(triplet_features).float()
         return g
     
-    def get_graph(self, smi):
+    def get_graph(self, smi, **kwargs):
         mol = Chem.MolFromSmiles(smi)
         if mol is None: 
             raise Exception("Invalid SMILES: failed to generate mol object")

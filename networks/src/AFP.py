@@ -64,11 +64,12 @@ class Atom_AFPLayer(nn.Module):
         # update the edge feats by concat edge feats together with the neighborhood node feats
         graph.apply_edges(self.update_edge_by_neighbor)
         graph.apply_edges(self.cal_alignment_score)
-        graph.edata['att_context'] = edge_softmax(graph, graph.edata['score']) * self.attend(graph.edata['neighbor_message'])
+        graph.edata['att_context'] = self.attend(graph.edata['neighbor_message'])
+        # graph.edata['att_context'] = edge_softmax(graph, graph.edata['score']) * self.attend(graph.edata['neighbor_message'])
         graph.update_all(self.att_context_passing, self.cal_context)
-        context = F.elu(graph.ndata['context'])
-        new_node = F.relu(self.GRUCell(context, graph.ndata['node_embedded_feats']))
-        return new_node
+        context = nn.ReLU()(graph.ndata['context'])
+        # new_node = nn.LeakyReLU()(self.GRUCell(context, graph.ndata['node_embedded_feats']))
+        return context
 
 
 class Atom_AttentiveFP(nn.Module):

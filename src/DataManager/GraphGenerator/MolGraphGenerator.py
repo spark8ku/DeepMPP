@@ -17,7 +17,7 @@ class MolGraphGenerator:
         self.edge_dim = self.bf(Chem.MolFromSmiles('C-C')).shape[1]
 
     # Get the graph from the SMILES
-    def get_graph(self,smi):
+    def get_graph(self,smi,**kwargs):
         mol = Chem.MolFromSmiles(smi)
         
         if mol.GetNumAtoms() == 1:

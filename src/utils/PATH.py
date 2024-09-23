@@ -18,6 +18,7 @@ def init_path(config):
     init_NET_DIR(config)
 
 def init_data_path(config):
+    DATA_PATH = None
     data_file = config.get('data',None)
     if not data_file.endswith('.csv'):
         data_file += ".csv"
@@ -30,6 +31,8 @@ def init_data_path(config):
             if data_file in files:
                 DATA_PATH = os.path.join(root,data_file)
                 break
+    if DATA_PATH is None:
+        raise Exception("Data file not found")
     config["DATA_PATH"] = DATA_PATH
     return DATA_PATH
     

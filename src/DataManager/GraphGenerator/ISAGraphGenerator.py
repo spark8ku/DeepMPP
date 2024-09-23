@@ -22,12 +22,12 @@ class ISAGraphGenerator(MolGraphGenerator):
         self.set_feature_dim()
         self.verbose = True
 
-    def get_graph(self, smi):
+    def get_graph(self, smi, **kwargs):
         mol = Chem.MolFromSmiles(smi)
         if mol is None: 
             raise Exception("Invalid SMILES: failed to generate mol object")
 
-        g = self.generate_graph(mol)
+        g = self.generate_graph(mol, **kwargs)
         atom_feature = self.af(mol)
         bond_feature = self.bf(mol)
 
@@ -91,7 +91,8 @@ class ISAGraphGenerator(MolGraphGenerator):
         sd_dist = ohe.fit_transform(np.array(sd_dist+sd_dist).reshape(-1,1))
         return (src+dst, dst+src), sd_dist
 
-    def generate_graph(self,mol):
+    def generate_graph(self,mol, **kwargs):
+        max_dist = kwargs.get('max_dist',4)
         num_atoms = mol.GetNumAtoms()
         mol_data = self.generate_mol_graph(mol)
         
@@ -105,7 +106,7 @@ class ISAGraphGenerator(MolGraphGenerator):
                 i2d_src.append(a)
                 i2d_dst.append(i)
 
-        dot_data, dist = self.generate_dot_graph(mol, frag)
+        dot_data, dist = self.generate_dot_graph(mol, frag, max_dist = max_dist)
 
 
         graph_data = {

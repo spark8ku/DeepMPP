@@ -25,14 +25,14 @@ config0 = {
     "device": "cuda:0",
     "pin_memory": False,
 
-    'hidden_dim': 32,
-    'conv_layers':6,
-    'linear_layers': 3,
-    'dropout': 0.1,
+    'hidden_dim': None,
+    'conv_layers':None,
+    'linear_layers': None,
+    'dropout': None,
 
-    'solv_hidden_dim': 64,
-    'solv_conv_layers': 4,
-    'solv_linear_layers': 2,
+    'solv_hidden_dim': None,
+    'solv_conv_layers': None,
+    'solv_linear_layers': None,
 }
 
 
@@ -130,7 +130,13 @@ def check_args(**kwargs):
             raise Exception("target should be a list of strings")
         else:
             kwargs['target_dim'] = len(kwargs['target'])
+    if kwargs.get('data',None) is None:
+        raise Exception("data is required")
+    else:
+        if kwargs['data'][-4:] == '.csv':
+            kwargs['data'] = kwargs['data'][:-4]
     return kwargs
+
 
 def set_config(**kwargs):    
     "process the arguments and set the configuration for the training"
@@ -149,7 +155,6 @@ def set_config(**kwargs):
         config = _config
 
     PATH.init_path(config)
-    net_config = load_NET_REFER(config)
 
     if config.get('TRANSFER_PATH',None) is not None:
         config['TRANSFER_PATH'] = PATH.find_model_path(config['TRANSFER_PATH'],config)
@@ -165,6 +170,7 @@ def set_config(**kwargs):
         config['MODEL_PATH'] = PATH.get_model_path(config)
         
     if config.get('LOAD_PATH',None) is None:
+        net_config = load_NET_REFER(config)
         config.update(net_config)
         config['MODEL_PATH'] = PATH.get_model_path(config)
     PATH.check_path(config)
