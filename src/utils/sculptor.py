@@ -8,6 +8,7 @@ import dgl
 import torch
 from . import PATH
 from .tools import showAtomHighlight
+import re
 
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
@@ -21,7 +22,10 @@ class Subgroup():
         self.name=name
         self.priority=str(priority)
         self.mol = mol if type(mol)==Chem.rdchem.Mol else Chem.MolFromSmiles(mol)
+        for atom in mol.GetAtoms():
+            atom.SetAtomMapNum(atom.GetIdx()+1) 
         
+
     def __len__(self):
         return len(self.atoms)
 
@@ -32,7 +36,8 @@ class Subgroup():
             self.smiles=group_smiles
         else:
             smi=Chem.MolFragmentToSmiles(self.mol,[int(j) for j in self.atoms])
-            self.smiles=remove_index(smi)
+            self.smiles=smi #remove_index(smi)
+        self.atoms = [int(i)-1 for i in re.findall(r'\:(\d+)\]',self.smiles)]
 
     def specify_group(self):
         # smiles=get_fragment_with_branch(self.mol,self.atoms)
@@ -98,6 +103,8 @@ class Subgroup_list():
             self.subgroups.remove(j)
 
     def get_num_outter_bond(self, idx):
+        # args| idx (int) : the index of the subgroup
+        # return| list of int : the number of the outter bond of the atoms in the subgroup
         num_list = []
         for a in self.subgroups[idx].atoms:
             count=0
@@ -107,6 +114,39 @@ class Subgroup_list():
                     count+=1
             num_list.append(count)
         return num_list
+
+    def get_atm_idx_of_outter_bond(self,idx):
+        # args: idx (int) : the index of the subgroup
+        # return: list of list of int: the index of destination atoms of the outter bond of the atoms in the subgroup
+        dest_idx_list = []
+        for a in self.subgroups[idx].atoms:
+            atom = self.mol.GetAtomWithIdx(int(a))
+            outter_atom = []
+            for n in atom.GetNeighbors():
+                if n.GetIdx() not in self.subgroups[idx].atoms:
+                    outter_atom.append(n.GetIdx())
+            dest_idx_list.append(outter_atom)
+        return dest_idx_list
+
+    def get_group_idx_of_outter_bond(self,idx):
+        # args: idx (int) : the index of the subgroup
+        # return: list of list of int: the index of destination atoms of the outter bond of the atoms in the subgroup
+        dest_idx_list = []
+        for a in self.subgroups[idx].atoms:
+            atom = self.mol.GetAtomWithIdx(int(a))
+            outter_atom = []
+            for n in atom.GetNeighbors():
+                if n.GetIdx() not in self.subgroups[idx].atoms:
+                    outter_atom.append(self.get_parent_group_of_atom(n.GetIdx()))
+            dest_idx_list.append(outter_atom)
+        return dest_idx_list
+    
+    def get_parent_group_of_atom(self,atom_idx):
+        # args: atom_idx (int) : the index of the atom
+        # return: int : the index of the parent group of the atom
+        for i,subgroup in enumerate(self.subgroups):
+            if atom_idx in subgroup.atoms:
+                return i
 
 
 class Segmentator():
@@ -324,14 +364,17 @@ class SubgroupSplitter(object):
             if int(subgroup1.priority)>=5:
                 for a in subgroup1.atoms:
                     atom = self.mol.GetAtomWithIdx(int(a))
-                    if not atom.GetIsAromatic(): continue
+                    # if not atom.GetIsAromatic(): continue
                     for neighbor in atom.GetNeighbors():
                         neighbor=neighbor.GetIdx()
-                        if neighbor in subgroup1.atoms: continue
+                        if neighbor in subgroup1.atoms: 
+                            continue
                         for j,subgroup2 in enumerate(self.subgroup_list):
                             if neighbor in subgroup2.atoms:
+                                if len(subgroup2.atoms)!=1: break
                                 if self.mol.GetBondBetweenAtoms(int(a),neighbor).GetBondType()==Chem.rdchem.BondType.DOUBLE:
                                     concat_targets.append([i,j])
+                                    break
         self.subgroup_list.concat(concat_targets,order = '7')
 
     def combine_neighbor_subgroups(self,order=1,log=False):

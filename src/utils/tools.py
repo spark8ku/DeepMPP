@@ -31,7 +31,7 @@ def plot_learning_curve(train_losses,val_losses):
     plt.close()
     return pil_image
 
-def plot_prediction(targets: list[str], prediction_df: "pd.DataFrame"):
+def plot_prediction(targets, prediction_df):
     "Draw the prediction plot"
     train_df = prediction_df[prediction_df['set']=="train"]
     val_df = prediction_df[prediction_df['set']=="val"]

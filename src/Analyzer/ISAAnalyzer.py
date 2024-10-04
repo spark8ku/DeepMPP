@@ -404,7 +404,7 @@ class ISAAnalyzer(MolAnalyzer):
         return pos_frag, neg_frag
         
     # plot the histogram of the attention score of the given list of smiles by its subgroups by one
-    def plot_subgroup_score_histogram_byone(self, smiles_list, nums = 10, bins=40, xlim=[0,1], target_subgroups: list[str] = None):
+    def plot_subgroup_score_histogram_byone(self, smiles_list, nums = 10, bins=40, xlim=[0,1], target_subgroups= None):
         """
         This function plots the histogram of the attention score of the given list of smiles by its subgroups by one.
 
