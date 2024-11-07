@@ -64,32 +64,12 @@ class Atom_AFPLayer(nn.Module):
         # update the edge feats by concat edge feats together with the neighborhood node feats
         graph.apply_edges(self.update_edge_by_neighbor)
         graph.apply_edges(self.cal_alignment_score)
-        graph.edata['att_context'] = self.attend(graph.edata['neighbor_message'])
-        # graph.edata['att_context'] = edge_softmax(graph, graph.edata['score']) * self.attend(graph.edata['neighbor_message'])
+        graph.edata['att_context'] = edge_softmax(graph, graph.edata['score']) * self.attend(graph.edata['neighbor_message'])
         graph.update_all(self.att_context_passing, self.cal_context)
-        context = nn.ReLU()(graph.ndata['context'])
+        context = nn.LeakyReLU()(graph.ndata['context'])
         # new_node = nn.LeakyReLU()(self.GRUCell(context, graph.ndata['node_embedded_feats']))
-        return context
-
-
-class Atom_AttentiveFP(nn.Module):
-    # Generate Context of each nodes
-    def __init__(self, config):
-        super().__init__()
-        conv_layers = config.get('conv_layers', 4)
-        self.PassingDepth = nn.ModuleList([Atom_AFPLayer(config) for _ in range(conv_layers)])
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        for l in self.PassingDepth:
-            l.reset_parameters()
-
-    def forward(self, graph, node, edge):
-        with graph.local_scope():
-            for step in self.PassingDepth:
-                node = step(graph, node, edge)
-        return node
-
+        new_node = context + graph.ndata['node_embedded_feats']
+        return new_node
 
 class Mol_AFPLayer(nn.Module):
     def __init__(self, config):
@@ -119,8 +99,35 @@ class Mol_AFPLayer(nn.Module):
         graph.ndata['attention_weight'] = dgl.softmax_nodes(graph, 'score')
         graph.ndata['hidden_node'] = self.attend(node)
         super_context = F.elu(dgl.sum_nodes(graph, 'hidden_node', 'attention_weight'))
-        super_node = F.relu(self.GRUCell(super_context, super_node))
+        # super_node = self.GRUCell(super_context, super_node)
+        super_node = super_context + super_node
         return super_node, graph.ndata['attention_weight']
+
+
+class AttentiveFP(nn.Module):
+    # Generate Context of each nodes
+    def __init__(self, config):
+        super().__init__()
+        conv_layers = config.get('conv_layers', 4)
+        self.PassingDepth = nn.ModuleList([Atom_AFPLayer(config) for _ in range(conv_layers)])
+        self.MultiTimeSteps = nn.ModuleList([Mol_AFPLayer(config) for d in range(conv_layers)])
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        for l in self.PassingDepth:
+            l.reset_parameters()
+
+        for l in self.MultiTimeSteps:
+            l.reset_parameters()
+
+    def forward(self, graph, node, edge):
+        with graph.local_scope():
+            graph.ndata['node_feats'] = node
+            super_node = dgl.sum_nodes(graph, 'node_feats')
+            for i in range(len(self.PassingDepth)):
+                node = self.PassingDepth[i](graph, node, edge)
+                super_node, att_w = self.MultiTimeSteps[i](graph, super_node, node)
+        return super_node, att_w
 
 
 class Mol_AttentiveFP(nn.Module):
@@ -143,23 +150,6 @@ class Mol_AttentiveFP(nn.Module):
                 attention_list.append(attention_t)
             attention_list = torch.cat(attention_list, dim=1)
         return super_node, attention_list
-
-
-
-class Linear_BatchNorm(nn.Module):
-    def __init__(self, in_dim, out_dim):
-        super().__init__()
-        self.L = nn.Linear(in_dim, out_dim, bias=True)
-        self.batchnorm_h = nn.BatchNorm1d(out_dim)
-
-    def forward(self, input):
-        hidden_input = self.L(input)
-        size = hidden_input.size()
-        hidden_input = hidden_input.view(-1, hidden_input.size()[-1], 1)
-        hidden_input = self.batchnorm_h(hidden_input)
-        output = hidden_input.view(size)
-        return output
-
 
 
 

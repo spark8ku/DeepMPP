@@ -32,11 +32,16 @@ class NetworkManager:
     def set_unwrapper(self, unwrapper):
         self.unwrapper = unwrapper
 
-    def get_net_module(self):
-        if os.path.exists(self.config['MODEL_PATH']+"/network.py"):
-            net_path = self.config['MODEL_PATH']+"/network"
-        elif os.path.exists(os.path.join(self.config['NET_DIR'],self.config['network']+'.py')):
-            net_path = os.path.join(self.config['NET_DIR'],self.config['network'])
+    def get_net_module(self,config=None):
+        if config is None:
+            config = self.config
+        # print(config['NET_DIR'])  
+        if os.path.exists(config['MODEL_PATH']+"/network.py"):
+            net_path = config['MODEL_PATH']+"/network"
+        elif os.path.exists(os.path.join(config['NET_DIR'], config['network']+'.py')):
+            net_path = os.path.join(config['NET_DIR'], config['network'])
+        else:
+            raise Exception("Network module not found")
 
         if os.path.isabs(net_path) and '/D4CMPP/' in net_path:
             net_path = 'D4CMPP'+net_path.split('D4CMPP')[-1]
@@ -64,7 +69,7 @@ class NetworkManager:
 
         # Copy the script of the network to the model directory
         os.makedirs(self.config['MODEL_PATH'], exist_ok=True)
-        os.system(f"""cp "{self.config['NET_DIR']}/{self.config['network']}.py" "{self.config['MODEL_PATH']}/network.py" """)
+        os.system(f"""cp '{self.config['NET_DIR']}/{self.config['network']}.py' '{self.config['MODEL_PATH']}/network.py' """)
         # Save the configuration
         with open(os.path.join(self.config['MODEL_PATH'],'config.yaml'), 'w') as file:
             yaml.dump(self.config, file, default_flow_style=False)
@@ -191,7 +196,7 @@ class NetworkManager:
 
     def load_params_transfer_learn(self, path):
         config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
-        module = self.get_net_module()
+        module = self.get_net_module(config)
         origin_network = module(config)
         origin_network.load_state_dict(torch.load(os.path.join(path,'final.pth')))
 

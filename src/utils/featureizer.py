@@ -4,13 +4,13 @@ import hashlib
 import re
 
 import rdkit.Chem as Chem
-from rdkit.Chem import AllChem, rdMolTransforms
+from rdkit.Chem import AllChem, rdMolTransforms, MACCSkeys
 
 class InvalidAtomError(Exception):
     pass
 
 def get_graph_features(mol):
-    return np.array(AllChem.GetMorganFingerprintAsBitVect(mol,2, nBits=1024)).astype(float)
+    return np.array(MACCSkeys.GenMACCSKeys(mol)).astype(float)
 
 def get_atom_features(mol):
     atom_features = []

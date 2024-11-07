@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from networks.src.AFP import Atom_AttentiveFP, Mol_AttentiveFP
+from networks.src.AFP import  AttentiveFP
 from networks.src.Linear import Linears
 from networks.src.MPNN import MPNNs
 from dgl.nn import SumPooling
@@ -21,8 +21,7 @@ class network(nn.Module):
         self.embedding_edge_lin = nn.Linear(config['edge_dim'], hidden_dim, bias=True)
 
         # self.Atom_Attentive = Atom_AttentiveFP(config)
-        self.Mol_Attentive = Mol_AttentiveFP(config)
-        self.Atom_Attentive = MPNNs(hidden_dim, hidden_dim, hidden_dim,hidden_dim, nn.LeakyReLU(), conv_layers, dropout, False, True)
+        self.AttentiveFP = AttentiveFP(config)
         self.Linears = Linears(hidden_dim,config['target_dim'], nn.ReLU(), linear_layers, dropout, False, False, True) 
         
 
@@ -30,15 +29,12 @@ class network(nn.Module):
         node = self.embedding_node_lin(node_feats)
         edge = self.embedding_edge_lin(edge_feats)
 
-        new_node = self.Atom_Attentive(graph, node, edge)
-
-        super_node, attention_list = self.Mol_Attentive(graph, new_node)
-        # super_node = SumPooling()( graph, new_node)
+        super_node, att_w = self.AttentiveFP(graph, node, edge)
 
         output = self.Linears(super_node)
         
         if kwargs.get('get_score',False):
-            return {'prediction':output, 'positive':attention_list}
+            return {'prediction':output, 'positive':att_w}
         
         return output
 

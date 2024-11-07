@@ -73,6 +73,9 @@ def grid_search(hyperparameters, **kwargs):
             _config['MODEL_PATH'] = _config['MODEL_PATH'] + grid_id
             
             run(_config)
+        except KeyboardInterrupt:
+            print("KeyboardInterrupt")
+            break
         except:
             print(traceback.format_exc())
             continue

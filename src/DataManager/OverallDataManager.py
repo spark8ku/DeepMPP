@@ -6,6 +6,8 @@ from D4CMPP.src.utils import PATH
 from dgl.data.utils import save_graphs, load_graphs
 from .GraphGenerator.OverallGraphGenerator import OverallGraphGenerator
 from .Dataset.OverallGraphDataset import OverallGraphdataset,OverallGraphdataset_withSolv
+import hashlib
+
 
 class OverallDataManager(MolDataManager):
     def __init__(self, config):
@@ -28,7 +30,10 @@ class OverallDataManager(MolDataManager):
                 overall_features.append(torch.zeros(self.gg.graph_dim))
                 new_graphs.append(g)
                 continue
-            a = torch.tensor(g.ndata['g'].detach().cpu()[0]).float()
+            a = g.ndata['g'].detach().cpu()[0]
+            if type(a) != torch.Tensor:
+                a = torch.tensor(a)
+            a = a.float()
             g = g.local_var()
             g.ndata.pop('g')
             new_graphs.append(g)
@@ -36,7 +41,7 @@ class OverallDataManager(MolDataManager):
         overall_features = torch.stack(overall_features)
         self.molecule_graphs[col] = new_graphs
         self.graph_features[col] = overall_features
-        save_graphs(os.path.join(self.config['GRAPH_DIR'],self.data+"_"+col+"_"+self.graph_type+".bin"), self.molecule_graphs[col],{'overall':overall_features,'smiles':torch.tensor([hash(smi) for smi in self.molecule_smiles[col]])})
+        save_graphs(os.path.join(self.config['GRAPH_DIR'],self.data+"_"+col+"_"+self.graph_type+".bin"), self.molecule_graphs[col],{'overall':overall_features,'smiles':torch.tensor([hash_smiles(smi) for smi in self.molecule_smiles[col]])})
 
 
     def load_graphs(self,col):
@@ -45,7 +50,7 @@ class OverallDataManager(MolDataManager):
         if len(self.molecule_graphs[col]) != len(self.molecule_smiles[col]):    
             raise ValueError("Graphs and smiles are not matched")
         for i in range(len(self.molecule_graphs[col])):
-            if hash(self.molecule_smiles[col][i]) != _['smiles'][i]:
+            if hash_smiles(self.molecule_smiles[col][i]) != _['smiles'][i]:
                 raise ValueError("Graphs and smiles are not matched")
 
     def init_temp_data(self,smiles_list):
@@ -91,4 +96,5 @@ class OverallDataManager_withSolv(OverallDataManager):
     def init_dataset(self):
         return self.dataset(self.molecule_graphs['compound'], self.graph_features['compound'], self.molecule_graphs['solvent'], self.graph_features['solvent'],  self.target_value, self.molecule_smiles['compound'], self.molecule_smiles['solvent'])
     
-    
+def hash_smiles(smiles):
+    return int(hashlib.md5(smiles.encode()).hexdigest(),16) % (10 ** 8)

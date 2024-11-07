@@ -200,8 +200,7 @@ class ISAAnalyzer(MolAnalyzer):
             self.save_data(smiles, result)
         return valid_smiles['compound'], results
     
-    def plot_score(self, smiles ,*, atom_with_index=False, score_scaler=lambda x:x, ticks= [0,0.25,0.5,0.75,1],
-                   rot=0, line_width=2.0, locate='right',figsize=1, only_total=False, with_colorbar=True,):
+    def plot_score(self, smiles ,**kwargs):
         """
         This function plots the attention score of the given smiles by its subgroups.
 
@@ -222,6 +221,31 @@ class ISAAnalyzer(MolAnalyzer):
         
         """
         score = self.get_score(smiles)
+        return self._plot_score(smiles, score, **kwargs)
+        
+    
+    def _plot_score(self, smiles, score,*, atom_with_index=False, score_scaler=lambda x:x, ticks= [0,0.25,0.5,0.75,1], tick_type='manual',
+                   rot=0, line_width=2.0, locate='right',figsize=1, only_total=False, with_colorbar=True,**kwargs):
+        """
+        This function plots the attention score of the given smiles by its subgroups.
+
+        Args:
+            smiles (str): The smiles of the molecule.
+            atom_with_index (bool): Whether to show the atom index or not.
+            score_scaler (function): The function to scale the score. Default is lambda x:x.
+            ticks (list): The ticks of the colorbar. Default is [0,0.25,0.5,0.75,1].
+            tick_type (str): The type of the ticks. Default is 'manual'. It can be 'manual' or 'minmax'.
+            rot (int): The rotation of the molecule. Default is 0.
+            locate (str): The location of the subplots. Default is 'right'. It can be 'right' or 'bottom'.
+            figsize (float): The size of the figure. Default is 1.
+            only_total (bool): Whether to plot only the total score or plot PAS and NAS as well. Default is False.
+            with_colorbar (bool): Whether to show the colorbar or not. Default is True.
+
+        Returns:
+            dict: The attention score of the given smiles.
+                  Each value in the dictionary is the attention score of corresponding atom with the same index.
+        
+        """
         mol = Chem.MolFromSmiles(smiles)
         
         colors = [(0, 'orangered'),(0.5,'white'),  (1, 'royalblue')]
@@ -245,6 +269,7 @@ class ISAAnalyzer(MolAnalyzer):
             neg_score = score['negative']
             tot_score = np.zeros_like(pos_score)
             tot_score=(1+pos_score-neg_score)/2
+            raw_score = tot_score
             tot_score = _score_scaler(tot_score)
             score['total'] = tot_score
 
@@ -284,9 +309,12 @@ class ISAAnalyzer(MolAnalyzer):
             if with_colorbar:
                 cb = plt.colorbar(plt.cm.ScalarMappable(cmap=cm), ax=ax, shrink=0.5, pad=0)
                 cb.set_ticks([0,0.25,0.5,0.75,1])
+                if tick_type == 'minmax':
+                    ticks = list(np.round(np.linspace(np.min(raw_score),np.max(raw_score),5),3))
                 cb.set_ticklabels(ticks)
                 cb.ax.tick_params(labelsize=20)
         else:
+            raw_score = score['positive']
             score['positive'] = _score_scaler(score['positive'])
             score['positive'] = self.get_atom_score(smiles,score['positive'])  
             fig, ax = plt.subplots(1, 1, figsize=(16, 11))
@@ -294,6 +322,8 @@ class ISAAnalyzer(MolAnalyzer):
             if with_colorbar:
                 cb = plt.colorbar(plt.cm.ScalarMappable(cmap=cm), ax=ax, shrink=0.7)
                 cb.set_ticks([0,0.25,0.5,0.75,1])
+                if tick_type == 'minmax':
+                    ticks = list(np.round(np.linspace(np.min(raw_score),np.max(raw_score),5),3))
                 cb.set_ticklabels(ticks)
                 cb.ax.tick_params(labelsize=20)
         plt.show()
@@ -727,9 +757,6 @@ class ISAAnalyzer(MolAnalyzer):
     #     return frag, synergy_matrix, shaps
 
             
-
-
-
 
 
 def showAtomHighlight(mol,score,color_map,atom_with_index=True,rot=0,line_width=1.0,figsize=1):

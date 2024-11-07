@@ -37,12 +37,11 @@ class MolDataManager:
         self.target = config["target"]
         self.scaler = Scaler(config.get("scaler","identity"))
         self.molecule_columns = ['compound']
+        self.molecule_graphs={col:[] for col in self.molecule_columns}
         self.molecule_smiles = {}
-        self.molecule_graphs = {}
         self.valid_smiles = {}
         self.random_seed = config.get("split_random_seed",42)
         self.set = None
-
         self.import_others()
         config.update({"node_dim":self.gg.node_dim, "edge_dim":self.gg.edge_dim})
 
@@ -56,6 +55,8 @@ class MolDataManager:
     # Initialize the temporary data for the prediction
     def init_temp_data(self,smiles_list):
         self.molecule_smiles['compound'] = np.array(smiles_list)
+        self.valid_smiles['compound'] = np.array(smiles_list)
+        self.molecule_graphs={col:[] for col in self.molecule_columns}
         self.target_value = np.zeros((len(smiles_list),self.config["target_dim"]))
         self.gg.verbose= False
         self.generate_graph('compound')
@@ -81,6 +82,7 @@ class MolDataManager:
         for col in self.molecule_columns:
             if col in self.df.columns:
                 self.molecule_smiles[col] = np.array(list(self.df[col]))
+                self.valid_smiles[col] = np.array(list(self.df[col]))
             else:
                 raise ValueError(f"{col} is not in the dataframe")
         if torch.tensor(self.df[self.target].values).dim() == 1:
@@ -101,8 +103,7 @@ class MolDataManager:
 
     # Generate the graph from the smiles. the data failed to generate the graph will be saved as an empty graph
     def generate_graph(self,col,graphs=None):
-        self.molecule_graphs[col] = []
-        self.valid_smiles[col] = []
+        
         invalids = []
         if graphs is not None:
             for smi,g in zip(self.molecule_smiles[col],graphs):
@@ -121,8 +122,10 @@ class MolDataManager:
                 g = graphgenerator.get_empty_graph() # save the empty graph instead of the failed graph
                 invalids.append(pd.DataFrame({'smiles':[smi],'type':[col],'reason':[str(e)]}))
 
-            if g.number_of_nodes()>0:
-                self.valid_smiles[col].append(smi)
+            if g.number_of_nodes()==0:
+                invalid_index = np.array(self.valid_smiles[col])==smi
+                for _col in self.molecule_columns:
+                    self.valid_smiles[_col] = self.valid_smiles[_col][np.where(~invalid_index)]
             self.molecule_graphs[col].append(g)
         if len(invalids)>0:
             invalids = pd.concat(invalids) 
@@ -240,8 +243,9 @@ class MolDataManager:
 class MolDataManager_withSolv(MolDataManager):
     """The class for the management of the molecular data with the solvent, preparing the dataset, and dataloader"""
     def __init__(self, config):
-        super(MolDataManager_withSolv, self).__init__(config)
+        super().__init__(config)
         self.molecule_columns.append('solvent')
+        self.molecule_graphs={col:[] for col in self.molecule_columns}
 
     def import_others(self):
         self.graph_type = 'mol'
@@ -251,8 +255,9 @@ class MolDataManager_withSolv(MolDataManager):
         self.unwrapper = self.dataset.unwrapper
         
     def init_temp_data(self,smiles,solvents):
-        self.molecule_smiles['compound'] = np.array(smiles)
-        self.molecule_smiles['solvent'] = np.array(solvents)
+        self.molecule_graphs={col:[] for col in self.molecule_columns}
+        self.molecule_smiles={'compound':np.array(smiles),'solvent':np.array(solvents)}
+        self.valid_smiles={'compound':np.array(smiles),'solvent':np.array(solvents)}
         self.target_value = np.zeros((len(smiles),self.config["target_dim"]))
         self.gg.verbose= False
         self.generate_graph('compound')

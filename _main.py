@@ -15,7 +15,7 @@ config0 = {
     "optimizer": "Adam",
 
     "max_epoch": 2000,
-    "batch_size": 128,
+    "batch_size": 256,
     "learning_rate": 0.001,
     "weight_decay": 0.0005,
     "lr_patience": 80,
@@ -29,6 +29,10 @@ config0 = {
     'conv_layers':None,
     'linear_layers': None,
     'dropout': None,
+
+    'DataManager_PATH': "src.DataManager",
+    'NetworkManager_PATH': "src.NetworkManager",
+    'TrainManager_PATH': "src.TrainManager",
 
     'solv_hidden_dim': None,
     'solv_conv_layers': None,
@@ -191,6 +195,7 @@ def run(config):
     "the main function to run the training"
     is_tf = config.get('TRANSFER_PATH',None) is not None
     is_loaded = config.get('LOAD_PATH',None) is not None
+    e=None
     if is_tf:
         print("Transfer Learning from",config['TRANSFER_PATH'])
         print("Transfer Learning to",config['MODEL_PATH'])
@@ -201,15 +206,15 @@ def run(config):
         print("Training from scratch to",config['MODEL_PATH'])
 
     try:
-        dm = getattr(importlib.import_module("src.DataManager."+config['data_manager_module']),config['data_manager_class'])(config)
+        dm = getattr(importlib.import_module(config['DataManager_PATH']+"."+config['data_manager_module']),config['data_manager_class'])(config)
         dm.init_data()
         train_loaders, val_loaders, test_loaders = dm.get_Dataloaders()
         
-        nm = getattr(importlib.import_module("src.NetworkManager."+config['network_manager_module']),config['network_manager_class'])(config, tf=is_tf, unwrapper = dm.unwrapper)
+        nm = getattr(importlib.import_module(config['NetworkManager_PATH']+"."+config['network_manager_module']),config['network_manager_class'])(config, tf=is_tf, unwrapper = dm.unwrapper)
 
-        tm = getattr(importlib.import_module("src.TrainManager."+config['train_manager_module']),config['train_manager_class'])(config)
+        tm = getattr(importlib.import_module(config['TrainManager_PATH']+"."+config['train_manager_module']),config['train_manager_class'])(config)
         tm.train(nm, train_loaders, val_loaders)
-    except:
+    except Exception as e:
         print(traceback.format_exc())
         return
     if tm.train_error is not None:
@@ -217,6 +222,8 @@ def run(config):
 
     pp = PostProcessor(config)
     pp.postprocess(dm, nm, tm, train_loaders, val_loaders, test_loaders)
+    if e is not None:
+        raise e
 
 if __name__ == "__main__":
     train(**config0, use_argparser=True)

@@ -26,10 +26,10 @@ class MolAnalyzer:
         config = yaml.load(open(os.path.join(model_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
         config['MODEL_PATH'] = model_path
         config['LOAD_PATH'] = model_path
-        self.nm = getattr(importlib.import_module("src.NetworkManager."+config['network_manager_module']),config['network_manager_class'])(config, unwrapper = None)
+        self.nm = getattr(importlib.import_module(config.get("NetworkManager_PATH","src.NetworkManager")+"."+config['network_manager_module']),config['network_manager_class'])(config, unwrapper = None)
         config.update(self.nm.config)
-        self.dm = getattr(importlib.import_module("src.DataManager."+config['data_manager_module']),config['data_manager_class'])(config)
-        self.tm = getattr(importlib.import_module("src.TrainManager."+config['train_manager_module']),config['train_manager_class'])(config)
+        self.dm = getattr(importlib.import_module(config.get("DataManager_PATH","src.NetworkManager")+"."+config['data_manager_module']),config['data_manager_class'])(config)
+        self.tm = getattr(importlib.import_module(config.get("TrainManager_PATH","src.NetworkManager")+"."+config['train_manager_module']),config['train_manager_class'])(config)
         self.nm.set_unwrapper(self.dm.unwrapper)
 
 
