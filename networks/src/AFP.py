@@ -32,6 +32,7 @@ class Atom_AFPLayer(nn.Module):
             nn.Linear(self.hidden_dim, self.hidden_dim, bias=True)
         )
         self.GRUCell = nn.GRUCell(self.hidden_dim, self.hidden_dim)
+        self.dropout = nn.Dropout(config['dropout'])
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -53,7 +54,7 @@ class Atom_AFPLayer(nn.Module):
         return {'mail': edges.data['att_context']}
 
     def cal_context(self, nodes):
-        return {'context': torch.sum(nodes.mailbox['mail'], dim=-2)}
+        return {'context': torch.sum(self.dropout(nodes.mailbox['mail']), dim=-2)}
 
     def forward(self, graph, node, edge):
         graph = graph.local_var()
@@ -66,9 +67,9 @@ class Atom_AFPLayer(nn.Module):
         graph.apply_edges(self.cal_alignment_score)
         graph.edata['att_context'] = edge_softmax(graph, graph.edata['score']) * self.attend(graph.edata['neighbor_message'])
         graph.update_all(self.att_context_passing, self.cal_context)
-        context = nn.LeakyReLU()(graph.ndata['context'])
-        # new_node = nn.LeakyReLU()(self.GRUCell(context, graph.ndata['node_embedded_feats']))
-        new_node = context + graph.ndata['node_embedded_feats']
+        context = nn.ELU()(graph.ndata['context'])
+        new_node = nn.ReLU()(self.GRUCell(context, graph.ndata['node_embedded_feats']))
+        # new_node = context + graph.ndata['node_embedded_feats']
         return new_node
 
 class Mol_AFPLayer(nn.Module):
@@ -84,6 +85,7 @@ class Mol_AFPLayer(nn.Module):
             nn.Dropout(config['dropout']),
             nn.Linear(config['hidden_dim'], config['hidden_dim'], bias=True)
         )
+        self.dropout = nn.Dropout(config['dropout'])
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -97,10 +99,10 @@ class Mol_AFPLayer(nn.Module):
 
         graph.ndata['score'] = self.cal_alignment(torch.cat([node, dgl.broadcast_nodes(graph, super_node)], dim=1))
         graph.ndata['attention_weight'] = dgl.softmax_nodes(graph, 'score')
-        graph.ndata['hidden_node'] = self.attend(node)
+        graph.ndata['hidden_node'] = self.attend(self.dropout(node))
         super_context = F.elu(dgl.sum_nodes(graph, 'hidden_node', 'attention_weight'))
-        # super_node = self.GRUCell(super_context, super_node)
-        super_node = super_context + super_node
+        # super_node = super_context + super_node
+        super_node = F.relu(self.GRUCell(super_context, super_node))
         return super_node, graph.ndata['attention_weight']
 
 
@@ -109,8 +111,9 @@ class AttentiveFP(nn.Module):
     def __init__(self, config):
         super().__init__()
         conv_layers = config.get('conv_layers', 4)
+        T = config.get("T", conv_layers)
         self.PassingDepth = nn.ModuleList([Atom_AFPLayer(config) for _ in range(conv_layers)])
-        self.MultiTimeSteps = nn.ModuleList([Mol_AFPLayer(config) for d in range(conv_layers)])
+        self.MultiTimeSteps = nn.ModuleList([Mol_AFPLayer(config) for d in range(T)])
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -122,10 +125,13 @@ class AttentiveFP(nn.Module):
 
     def forward(self, graph, node, edge):
         with graph.local_scope():
-            graph.ndata['node_feats'] = node
-            super_node = dgl.sum_nodes(graph, 'node_feats')
             for i in range(len(self.PassingDepth)):
                 node = self.PassingDepth[i](graph, node, edge)
+            
+            graph.ndata['node_feats'] = node
+            super_node = dgl.sum_nodes(graph, 'node_feats')
+
+            for i in range(len(self.MultiTimeSteps)):
                 super_node, att_w = self.MultiTimeSteps[i](graph, super_node, node)
         return super_node, att_w
 

@@ -11,7 +11,6 @@ class GAT_layer(nn.Module):
 
         self.attention_W = nn.Linear(in_node_feats*2, hidden_feats)
         self.attention_a = nn.Linear(hidden_feats,1, bias=False)
-
         self.linear = nn.Linear(in_node_feats, out_feats)
 
         self.batch_norm = batch_norm

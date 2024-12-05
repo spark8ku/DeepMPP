@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+from rdkit import Chem
 from tqdm import tqdm
 
 import torch
@@ -36,6 +37,7 @@ class MolDataManager:
         self.data = config["data"]
         self.target = config["target"]
         self.scaler = Scaler(config.get("scaler","identity"))
+        self.explicit_h_columns = config.get("explicit_h_columns",[])
         self.molecule_columns = ['compound']
         self.molecule_graphs={col:[] for col in self.molecule_columns}
         self.molecule_smiles = {}
@@ -95,7 +97,7 @@ class MolDataManager:
     # Prepare the graph from the smiles, trying to load the graph first, then generate the graph if it does not exist
     def prepare_graph(self):
         for col in self.molecule_columns:
-            if os.path.exists(os.path.join(self.config['GRAPH_DIR'],self.data+"_"+col+"_"+self.graph_type+".bin")):
+            if os.path.exists(self.get_graphs_path(col)):
                 self.load_graphs(col)
             else:
                 self.generate_graph(col)
@@ -103,7 +105,6 @@ class MolDataManager:
 
     # Generate the graph from the smiles. the data failed to generate the graph will be saved as an empty graph
     def generate_graph(self,col,graphs=None):
-        
         invalids = []
         if graphs is not None:
             for smi,g in zip(self.molecule_smiles[col],graphs):
@@ -117,6 +118,8 @@ class MolDataManager:
             else:
                 graphgenerator = self.gg
             try:
+                if col in self.explicit_h_columns:
+                    smi  = Chem.MolToSmiles(Chem.AddHs(Chem.MolFromSmiles(smi)))
                 g=graphgenerator.get_graph(smi, **self.config)
             except Exception as e:
                 g = graphgenerator.get_empty_graph() # save the empty graph instead of the failed graph
@@ -131,14 +134,22 @@ class MolDataManager:
             invalids = pd.concat(invalids) 
             invalids.to_csv("graph_error.csv",index=False) # save the invalid smiles
         
+    def get_graphs_path(self,col):
+        file_name = self.data+"_"+col+"_"+self.graph_type
+        if col in self.explicit_h_columns:
+            file_name += "_explicitH"
+        file_name += ".bin"
+        file_path = os.path.join(self.config['GRAPH_DIR'],file_name)
+        return file_path
+
     # Save the generated graphs
     def save_graphs(self,col):
         hash_smiles = torch.tensor([hash(smi) for smi in self.molecule_smiles[col]]) # hash the smiles to avoid the mismatch of the graphs and smiles
-        save_graphs(os.path.join(self.config['GRAPH_DIR'],self.data+"_"+col+"_"+self.graph_type+".bin"), self.molecule_graphs[col],{'smiles':hash_smiles})
+        save_graphs(self.get_graphs_path(col), self.molecule_graphs[col],{'smiles':hash_smiles})
 
     # Load the saved graphs
     def load_graphs(self,col):
-        self.molecule_graphs[col],molecule_smiles= load_graphs(os.path.join(self.config['GRAPH_DIR'],self.data+"_"+col+"_"+self.graph_type+".bin"))
+        self.molecule_graphs[col],molecule_smiles= load_graphs(self.get_graphs_path(col))
         if len(self.molecule_graphs[col]) != len(self.molecule_smiles[col]):    
             raise ValueError("Graphs and smiles are not matched")
         for i in range(len(self.molecule_graphs[col])):
@@ -150,7 +161,8 @@ class MolDataManager:
     def drop_none_graph(self):
         _masks = []
         for col in self.molecule_columns:
-            _masks.append([g.number_of_nodes()>0 for g in self.molecule_graphs[col]])
+            _masks.append(np.array([g.number_of_nodes()>0 for g in self.molecule_graphs[col]]))
+        _masks = np.stack(_masks)
         mask = np.all(_masks,axis=0)
         self.masking(mask)
 

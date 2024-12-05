@@ -68,6 +68,8 @@ def train(**kwargs):
 
                                     
         (Optional args)
+        explicit_h_columns: list[str]. Default= []
+                        the name of the columns to be used as explicit hydrogen features for the nodes.
         scaler      : str. Default= "standard",
                       ['standard', 'minmax', 'normalizer', 'robust', 'identity']
         optimizer   : str. Default= "Adam",
