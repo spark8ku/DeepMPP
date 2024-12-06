@@ -3,6 +3,7 @@ import importlib
 import os
 import yaml
 import pandas as pd
+import numpy as np
 from D4CMPP.src.utils import PATH
     
 class NetworkManager:
@@ -21,9 +22,13 @@ class NetworkManager:
         self.es_counter = 0
         self.state= "train"
         self.tf = tf
+        self.schedulers = []
 
         if self.config.get('LOAD_PATH',None) is not None:
-            self.load_network(self.config['LOAD_PATH'])
+            if self.tf:
+                self.transferlearn_network()
+            else:
+                self.load_network()
         else:
             self.init_network()
         self.init_optimizer(config.get('lr_dict',{}) )
@@ -56,7 +61,6 @@ class NetworkManager:
         
         if net_path.startswith('./'):
             net_path=net_path.replace('./','')
-        print(net_path)
         return importlib.import_module(net_path.replace('/','.')).network
 
     # Initialize the network
@@ -75,31 +79,41 @@ class NetworkManager:
             yaml.dump(self.config, file, default_flow_style=False)
 
     # Load the network
-    def load_network(self, path):
+    def load_network(self):
         module = self.get_net_module()
         self.network = module(self.config)
         self.network.to(device = self.device)
         print(f"#params: {sum(p.numel() for p in self.network.parameters() if p.requires_grad)}" )
         self.loss_fn = self.network.loss_fn
 
-        if not self.tf: # If not transfer (when the network is loaded), learning curve will be also loaded and same configuration will be used
-            self.config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
-            self.learning_curve = pd.read_csv(os.path.join(path,'learning_curve.csv'))
+        path = self.config['LOAD_PATH']
+        self.config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
+        self.learning_curve = pd.read_csv(os.path.join(path,'learning_curve.csv'))
+        self.load_params(os.path.join(path,'final.pth'))
         
-        # loading parameters
-        config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
-        if config['network'] != self.config['network']:
-            self.load_params_transfer_learn(path)
-        else:
-            self.load_params(os.path.join(path,'final.pth'))
+
+    # Transfer learning
+    def transferlearn_network(self):
+        prev_config = yaml.load(open(os.path.join(self.config['LOAD_PATH'],'config.yaml'), 'r'), Loader=yaml.FullLoader)
+        prev_config.update(self.config)
+        self.config = prev_config
+        self.init_network()        
+        self.load_params_transfer_learn(self.config['LOAD_PATH'])
 
     # Initialize the optimizer
     def init_optimizer(self,lr_dict={}):        
         params = []
         for name, param in self.network.named_parameters():
-            name = name.split(".")[0]
-            if name in lr_dict:
-                lr = lr_dict[name]
+            custom_lr = False
+            for key in lr_dict.keys():
+                for layer_name in name.split("."):
+                    if layer_name == key:
+                        custom_lr = True
+                        break
+                if custom_lr:
+                    break
+            if custom_lr:
+                lr = lr_dict[key]
                 print(f"Set {name} lr to {lr}")
             else:
                 lr = self.config.get('learning_rate',0.001)
@@ -113,10 +127,14 @@ class NetworkManager:
 
     # Initialize the scheduler
     def init_scheduler(self):
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 
+        self.schedulers.append( torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 
                                                                     patience=self.config.get('lr_patience',10), 
                                                                     min_lr=self.config.get('min_lr',1e-7),
-                                                                    verbose=False)
+                                                                    factor=self.config.get('lr_plateau_decay',0.1),
+                                                                    ))
+        self.schedulers.append( torch.optim.lr_scheduler.StepLR(self.optimizer, 
+                                                                    step_size=self.config.get('lr_step',40), 
+                                                                    gamma=self.config.get('lr_step_decay',0.98)))
     
     "----------------------------------------------------------------------------------------------------------------------"
     "Below are the functions to manage the network during the training, and called by the Trainer class"
@@ -130,7 +148,10 @@ class NetworkManager:
         self.network.eval()
 
     def get_lr(self):
-        return self.optimizer.param_groups[0]['lr']
+        lrs = []
+        for param_group in self.optimizer.param_groups:
+            lrs.append(param_group['lr'])
+        return np.mean(lrs)
         
     # One step of the training including forward and backward
     def step(self, loader, flag= False, **kargs):
@@ -158,8 +179,12 @@ class NetworkManager:
         y_pred = self.network(**x)
         return y_pred, y
 
-    def scheduler_step(self, val_loss):
-        self.scheduler.step(val_loss)
+    def scheduler_step(self, val_loss=None):
+        for scheduler in self.schedulers:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(val_loss)
+            else:
+                scheduler.step()
 
         # save the best model and reset the early stopping counter
         if val_loss < self.best_loss:
@@ -175,8 +200,9 @@ class NetworkManager:
             return True
 
         # load the best model if the learning rate is reduced
-        if self.get_lr()<self.last_lr:
-            self.last_lr=self.get_lr()
+        current_lr = self.get_lr()
+        if current_lr<self.last_lr/2:
+            self.last_lr=current_lr
             self.load_best_checkpoint()
             print("reducing learning rate to "+str(self.last_lr))
             
@@ -198,7 +224,8 @@ class NetworkManager:
         config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
         module = self.get_net_module(config)
         origin_network = module(config)
-        origin_network.load_state_dict(torch.load(os.path.join(path,'final.pth')))
+        params = torch.load(os.path.join(path,'final.pth'), map_location=self.device)
+        origin_network.load_state_dict(params)
 
         pretrained_dict = origin_network.state_dict()
         model_dict = self.network.state_dict()
@@ -219,5 +246,3 @@ class NetworkManager:
         for m in self.network.modules():
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
-
-    

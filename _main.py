@@ -131,6 +131,8 @@ def train(**kwargs):
 
 def check_args(**kwargs):
     "check the arguments for the training"
+    if kwargs.get('LOAD_PATH',None) is not None:
+        return kwargs
     if kwargs.get('target',None) is not None:
         if type(kwargs['target']) is not list:
             raise Exception("target should be a list of strings")
@@ -179,6 +181,12 @@ def set_config(**kwargs):
         net_config = load_NET_REFER(config)
         config.update(net_config)
         config['MODEL_PATH'] = PATH.get_model_path(config)
+
+    if config.get('sculptor_index',None) is not None and type(config['sculptor_index']) is tuple:
+        config['sculptor_s'] = config['sculptor_index'][0]
+        config['sculptor_c'] = config['sculptor_index'][1]
+        config['sculptor_a'] = config['sculptor_index'][2]
+        config.pop('sculptor_index')
     PATH.check_path(config)
     return config
 
