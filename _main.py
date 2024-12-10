@@ -227,7 +227,6 @@ def run(config):
         tm = module_loader.load_train_manager(config)(config)
         dm.init_data()
         supportfile_saver.save_config(config)
-
         train_loaders, val_loaders, test_loaders = dm.get_Dataloaders()
         tm.train(nm, train_loaders, val_loaders)
     except Exception as e:

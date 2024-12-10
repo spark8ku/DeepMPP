@@ -200,54 +200,42 @@ class MolDataManager:
             self.val_dataset.reload(list(zip(*val_dataset)))
             self.test_dataset.reload(list(zip(*test_dataset)))
         else:
-            import copy
-            self.train_dataset,self.val_dataset,self.test_dataset = copy.deepcopy(self.whole_dataset),copy.deepcopy(self.whole_dataset),copy.deepcopy(self.whole_dataset)
-            
-            self.train_dataset.subDataset([i for i,s in enumerate(self.set) if s=="train"])
-            self.val_dataset.subDataset([i for i,s in enumerate(self.set) if s=="val"])
-            self.test_dataset.subDataset([i for i,s in enumerate(self.set) if s=="test"])
+            if len([s for s in self.set if s=="train"])==0:
+                raise ValueError("The set must have 'train'")
+            self.train_dataset = self.whole_dataset.get_subDataset([i for i,s in enumerate(self.set) if s=="train"])
+            if len([s for s in self.set if s=="val"])==0:
+                raise ValueError("The set must have 'val'")
+            self.val_dataset = self.whole_dataset.get_subDataset([i for i,s in enumerate(self.set) if s=="val"])
+            if len([s for s in self.set if s=="test"])==0:
+                self.test_dataset = self.val_dataset
+            else:
+                self.test_dataset = self.whole_dataset.get_subDataset([i for i,s in enumerate(self.set) if s=="test"])
         print(f"Train: {len(self.train_dataset)}, Val: {len(self.val_dataset)}, Test: {len(self.test_dataset)}")
     
     # Initialize the dataloader
-    def init_Dataloader(self,set=None,partial_train=None, shuffle=None):
-        if set=="train":
-            if partial_train and partial_train<1.0:
-                self.train_dataset.subDataset(np.random.choice(len(self.train_dataset),int(len(self.train_dataset)*partial_train),replace=False))
-                print(f"Partial Training: {len(self.train_dataset)}")
-            elif partial_train and partial_train>1:
-                self.train_dataset.subDataset(np.random.choice(len(self.train_dataset),partial_train,replace=False))
-                print(f"Partial Training: {len(self.train_dataset)}")
-            dataset = self.train_dataset
-            shuffle = self.config.get('shuffle',True) if shuffle is None else shuffle
-        elif set=="val":
-            dataset = self.val_dataset
-            shuffle = False
-        elif set=="test":
-            dataset = self.test_dataset
-            shuffle = False
-        else:
-            dataset = self.whole_dataset
-            shuffle = False
+    def init_Dataloader(self,dataset,partial_train=1.0, shuffle=False):
+        if partial_train and partial_train<1.0 and partial_train>0:
+            dataset = dataset.get_subDataset(np.random.choice(len(self.train_dataset),int(len(self.train_dataset)*partial_train),replace=False))
+            print(f"Partial Training: {len(self.train_dataset)}")
 
         return DataLoader(dataset, 
                         batch_size=self.config.get('batch_size',32), 
                         shuffle=shuffle,
                         collate_fn=self.dataset.collate, 
                         pin_memory=self.config.get('pin_memory',True),
-                        num_workers=self.config.get('num_workers',0))
+                        num_workers=self.config.get('num_workers',2))
 
     # (main function) Provide the dataloader for the training, validation, and test
     def get_Dataloaders(self, temp=False):
         self.prepare_dataset(temp=temp)
-
         if temp:
             loader = self.init_Dataloader(shuffle=False)
             return loader
         else:
             self.split_data()
-            self.train_loader = self.init_Dataloader("train",partial_train=self.config.get('partial_train',1.0))
-            self.val_loader = self.init_Dataloader("val")
-            self.test_loader = self.init_Dataloader("test")
+            self.train_loader = self.init_Dataloader(self.train_dataset,partial_train=self.config.get('partial_train',1.0),shuffle=self.config.get('shuffle',True))
+            self.val_loader = self.init_Dataloader(self.val_dataset)
+            self.test_loader = self.init_Dataloader(self.test_dataset)
 
             return self.train_loader, self.val_loader, self.test_loader
   
