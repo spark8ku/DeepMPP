@@ -2,9 +2,9 @@ import torch.nn as nn
 import torch
 from dgl.nn import AvgPooling
 
-from networks.src.GCN import GCNs
-from networks.src.ALIGNN import ALIGNNs
-from networks.src.Linear import Linears
+from D4CMPP.networks.src.GCN import GCNs
+from D4CMPP.networks.src.ALIGNN import ALIGNNs
+from D4CMPP.networks.src.Linear import Linears
 
 class network(nn.Module):
     def __init__(self, config):

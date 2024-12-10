@@ -5,8 +5,8 @@ import dgl
 from dgl.nn import SumPooling
 
 import matplotlib.pyplot as plt
-from networks.src.GC import GCconvolution
-from networks.src.Linear import Linears
+from D4CMPP.networks.src.GC import GCconvolution
+from D4CMPP.networks.src.Linear import Linears
 
 class network(nn.Module):
     def __init__(self, config):

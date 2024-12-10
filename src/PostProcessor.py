@@ -16,19 +16,21 @@ class PostProcessor:
 
     def __init__(self, config):
         self.config = config
-        self.model_path = config['MODEL_PATH']
+        self.result_path = config['MODEL_PATH']+"/result"
+        if not os.path.exists(self.result_path):
+            os.makedirs(self.result_path)
 
     def postprocess(self, dm, nm, tm, train_loaders, val_loaders, test_loaders):
         "The main function for the postprocessing"
         try:
             self.clear_checkpoint()
-            nm.save_params(os.path.join(self.model_path,"final.pth"))
+            nm.save_params(os.path.join(self.config['MODEL_PATH'],"final.pth"))
         except:
             print("Model saving failed")
             return
         
         try:
-            tm.learning_curve.to_csv(os.path.join(self.model_path,"learning_curve.csv"),index=False)
+            tm.learning_curve.to_csv(os.path.join(self.result_path,"learning_curve.csv"),index=False)
             self.draw_learning_curve(tm.learning_curve)
         except:
             print(traceback.format_exc())
@@ -57,7 +59,7 @@ class PostProcessor:
             val_pred = scaler.inverse_transform(val_pred.cpu().numpy())
             test_pred = scaler.inverse_transform(test_pred.cpu().numpy())
 
-            with open(os.path.join(self.model_path,"scaler.pkl"),"wb") as file:
+            with open(os.path.join(self.config['MODEL_PATH'],"scaler.pkl"),"wb") as file:
                 pickle.dump(scaler,file)
             
         prediction_df = None
@@ -73,7 +75,7 @@ class PostProcessor:
             else:
                 prediction_df = pd.concat([prediction_df,df],axis=0)
 
-        prediction_df.to_csv(os.path.join(self.model_path,"prediction.csv"),index=False)
+        prediction_df.to_csv(os.path.join(self.result_path,"prediction.csv"),index=False)
         return prediction_df
 
     def save_metrics(self, targets, prediction_df):
@@ -86,15 +88,15 @@ class PostProcessor:
                 table.add_row([t,metrics[f'{set}_r2'][t],metrics[f'{set}_mae'][t],metrics[f'{set}_rmse'][t]])
             print(table)
         
-        metrics.to_csv(os.path.join(self.model_path,"metrics.csv"))
+        metrics.to_csv(os.path.join(self.result_path,"metrics.csv"))
 
     def plot_prediction(self,target, prediction_df):
         img = tools.plot_prediction(target, prediction_df)
-        img.save(os.path.join(self.model_path,"prediction.png"))
+        img.save(os.path.join(self.result_path,"prediction.png"))
         
 
     def save_model_summary(self, model,run_time):
-        with open(os.path.join(self.model_path,"model_summary.txt"), "w") as file:
+        with open(os.path.join(self.config['MODEL_PATH'],"model_summary.txt"), "w") as file:
             file.write(str(model))
             file.write(f"#params:{sum(p.numel() for p in model.parameters() if p.requires_grad)}")
             file.write("\n")
@@ -106,11 +108,11 @@ class PostProcessor:
 
     def draw_learning_curve(self, learning_curve):
         img = tools.plot_learning_curve(learning_curve['train_loss'],learning_curve['val_loss'])
-        img.save(os.path.join(self.model_path,"learning_curve.png"))
+        img.save(os.path.join(self.result_path,"learning_curve.png"))
 
     def clear_checkpoint(self):
-        for file in os.listdir(self.model_path):
+        for file in os.listdir(self.config['MODEL_PATH']):
             if file.endswith(".pth"):
-                os.remove(os.path.join(self.model_path, file))
+                os.remove(os.path.join(self.config['MODEL_PATH'], file))
         
                 

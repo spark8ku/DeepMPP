@@ -5,6 +5,7 @@ import importlib
 from D4CMPP.src.utils import argparser
 from D4CMPP.src.utils import PATH
 from D4CMPP.src.PostProcessor import PostProcessor
+from D4CMPP.src.utils import module_loader, supportfile_saver
 
 config0 = {
     "data": None,
@@ -29,10 +30,6 @@ config0 = {
     'conv_layers':None,
     'linear_layers': None,
     'dropout': None,
-
-    'DataManager_PATH': "src.DataManager",
-    'NetworkManager_PATH': "src.NetworkManager",
-    'TrainManager_PATH': "src.TrainManager",
 
     'solv_hidden_dim': None,
     'solv_conv_layers': None,
@@ -127,6 +124,8 @@ def train(**kwargs):
     """
     kwargs = check_args(**kwargs)
     config = set_config(**kwargs)
+    if not config.get('loaded',False):
+        supportfile_saver.save_additional_files(config)
     run(config)
 
 def check_args(**kwargs):
@@ -155,29 +154,37 @@ def set_config(**kwargs):
         config.update(vars(args))   
     config = {k: v for k, v in config.items() if v is not None}
 
+    netrefer_loaded = False
+    # overwrite the config with the loaded config if the LOAD_PATH is given
     if config.get('LOAD_PATH',None) is not None:
         config['LOAD_PATH'] = PATH.find_model_path(config['LOAD_PATH'] , config)
-        config['MODEL_PATH'] = config['LOAD_PATH']
-        _config = yaml.load(open(os.path.join(config['LOAD_PATH'],'config.yaml'), 'r'), Loader=yaml.FullLoader)
+        config['MODEL_PATH'] = config.pop('LOAD_PATH')
+        config['loaded'] = True
+        with open(config['MODEL_PATH']+'/config.yaml', "r") as file:
+            _config = yaml.safe_load(file)# _config = yaml.load(open(os.path.join(config['LOAD_PATH'],'config.yaml'), 'r'), Loader=yaml.FullLoader)
         _config.update(config)
         config = _config
+        netrefer_loaded = True
 
     PATH.init_path(config)
 
     if config.get('TRANSFER_PATH',None) is not None:
         config['TRANSFER_PATH'] = PATH.find_model_path(config['TRANSFER_PATH'],config)
+
+        # if the network is not given, load the network from the transfer path
         if config.get('network', None):
             net_config = load_NET_REFER(config)
             config.update(net_config)
 
+        # load the config from the transfer path
         with open(config['TRANSFER_PATH']+'/config.yaml', "r") as file:
             _config = yaml.safe_load(file)
-        _config['LOAD_PATH'] = config['TRANSFER_PATH']
         _config.update(config)
         config = _config
         config['MODEL_PATH'] = PATH.get_model_path(config)
+        netrefer_loaded = True
         
-    if config.get('LOAD_PATH',None) is None:
+    if not netrefer_loaded:
         net_config = load_NET_REFER(config)
         config.update(net_config)
         config['MODEL_PATH'] = PATH.get_model_path(config)
@@ -191,7 +198,7 @@ def set_config(**kwargs):
     return config
 
 def load_NET_REFER(config):
-    with open(config['NET_REFER'], "r") as file:
+    with open(PATH.get_network_refer(config), "r") as file:
         network_refer = yaml.safe_load(file)
     net_config = network_refer.get(config['network'],None)
     if net_config is None:
@@ -203,26 +210,25 @@ def load_NET_REFER(config):
 
 def run(config):
     "the main function to run the training"
-    is_tf = config.get('TRANSFER_PATH',None) is not None
-    is_loaded = config.get('LOAD_PATH',None) is not None
+    tf_path = config.pop('TRANSFER_PATH',None)
+    is_loaded = config.pop('loaded',False)
     e=None
-    if is_tf:
-        print("Transfer Learning from",config['TRANSFER_PATH'])
+    if tf_path:
+        print("Transfer Learning from",tf_path)
         print("Transfer Learning to",config['MODEL_PATH'])
     elif is_loaded:
-        print("Continue Learning from",config['LOAD_PATH'])
-        print("Continue Learning to",config['MODEL_PATH'])
+        print("Continue Learning from",config['MODEL_PATH'])
     else:
         print("Training from scratch to",config['MODEL_PATH'])
 
     try:
-        dm = getattr(importlib.import_module(config['DataManager_PATH']+"."+config['data_manager_module']),config['data_manager_class'])(config)
+        dm = module_loader.load_data_manager(config)(config)
+        nm = module_loader.load_network_manager(config)(config, tf_path=tf_path, unwrapper = dm.unwrapper)
+        tm = module_loader.load_train_manager(config)(config)
         dm.init_data()
-        train_loaders, val_loaders, test_loaders = dm.get_Dataloaders()
-        
-        nm = getattr(importlib.import_module(config['NetworkManager_PATH']+"."+config['network_manager_module']),config['network_manager_class'])(config, tf=is_tf, unwrapper = dm.unwrapper)
+        supportfile_saver.save_config(config)
 
-        tm = getattr(importlib.import_module(config['TrainManager_PATH']+"."+config['train_manager_module']),config['train_manager_class'])(config)
+        train_loaders, val_loaders, test_loaders = dm.get_Dataloaders()
         tm.train(nm, train_loaders, val_loaders)
     except Exception as e:
         print(traceback.format_exc())

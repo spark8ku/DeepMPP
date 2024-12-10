@@ -3,8 +3,8 @@ import dgl
 import torch
 import torch.nn as nn
 
-from networks.src.SolventLayer import SolventLayer
-from networks.src.DMPNN import DMPNNLayer
+from D4CMPP.networks.src.SolventLayer import SolventLayer
+from D4CMPP.networks.src.DMPNN import DMPNNLayer
 
 
 class network(nn.Module):

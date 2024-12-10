@@ -2,8 +2,8 @@ import torch.nn as nn
 import torch
 from dgl.nn import SumPooling
 
-from networks.src.GAT import GATs
-from networks.src.Linear import Linears
+from D4CMPP.networks.src.GAT import GATs
+from D4CMPP.networks.src.Linear import Linears
 
 class network(nn.Module):
     def __init__(self, config):

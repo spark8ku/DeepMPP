@@ -2,10 +2,10 @@ import torch.nn as nn
 import torch
 from dgl.nn import SumPooling
 
-from networks.src.GCN import GCNs
-from networks.src.MPNN import MPNNs
-from networks.src.Linear import Linears
-from networks.src.SolventLayer import SolventLayer
+from D4CMPP.networks.src.GCN import GCNs
+from D4CMPP.networks.src.MPNN import MPNNs
+from D4CMPP.networks.src.Linear import Linears
+from D4CMPP.networks.src.SolventLayer import SolventLayer
 
 class network(nn.Module):
     def __init__(self, config):

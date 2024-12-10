@@ -11,11 +11,11 @@ def init_path(config):
     if not "DATA_PATH" in config:
         init_data_path(config)
     if not "MODEL_DIR" in config:
-        init_model_path(config)
+        init_MODEL_DIR(config)
     init_GRAPH_DIR(config)
-    init_network_refer(config)
-    init_frag_ref_path(config)
-    init_NET_DIR(config)
+    # init_network_refer(config)
+    # init_frag_ref_path(config)
+    # init_NET_DIR(config)
 
 def init_data_path(config):
     DATA_PATH = None
@@ -39,49 +39,46 @@ def init_data_path(config):
 def init_GRAPH_DIR(config):
     if 'GRAPH_DIR' in config:
         GRAPH_DIR = config['GRAPH_DIR']
-    elif os.path.exists(work_dir+"/_Graphs"):
-        GRAPH_DIR = work_dir+"/_Graphs"
+    elif os.path.exists("./_Graphs"):
+        GRAPH_DIR = "./_Graphs"
     else:
-        os.makedirs(work_dir+"/_Graphs")
-        GRAPH_DIR = work_dir+"/_Graphs"
+        os.makedirs("./_Graphs")
+        GRAPH_DIR = "./_Graphs"
     config["GRAPH_DIR"] = GRAPH_DIR
     return GRAPH_DIR
     
-def init_model_path(config):
+def init_MODEL_DIR(config):
     if 'MODEL_DIR' in config:
         MODEL_DIR = config['MODEL_DIR']
-    elif os.path.exists(work_dir+"/_Models"):
-        MODEL_DIR = work_dir+"/_Models"
+    elif os.path.exists("./_Models"):
+        MODEL_DIR = "./_Models"
     else:
-        os.makedirs(work_dir+"/_Models")
-        MODEL_DIR = work_dir+"/_Models"
+        os.makedirs("./_Models")
+        MODEL_DIR = "./_Models"
     config["MODEL_DIR"] = MODEL_DIR
     return MODEL_DIR
     
-def init_network_refer(config):
+def get_network_refer(config):
     if 'NET_REFER' in config:
-        NET_REFER = config['NET_REFER']
+        NET_REFER = config.pop('NET_REFER')
     elif os.path.exists(base_dir+"/network_refer.yaml"):
         NET_REFER = base_dir+"/network_refer.yaml"
-    config["NET_REFER"] = NET_REFER
     return NET_REFER
 
-def init_frag_ref_path(config):
+def get_frag_ref_path(config):
     if 'FRAG_REF' in config:
-        FRAG_REF = config['FRAG_REF']
+        FRAG_REF = config.pop('FRAG_REF')
     elif os.path.exists(base_dir+"/src/utils/functional_group.csv"):
         FRAG_REF = base_dir+"/src/utils/functional_group.csv"
-    config["FRAG_REF"] = FRAG_REF
     return FRAG_REF
     
-def init_NET_DIR(config):
+def get_NET_DIR(config):
     if 'NET_DIR' in config:
-        NET_DIR = config['NET_DIR']
+        NET_DIR = config.pop('NET_DIR')
     elif os.path.exists(work_dir+"/networks"):
         NET_DIR = work_dir+"/networks"
     elif os.path.exists(base_dir+"/networks"):
         NET_DIR = base_dir+"/networks"
-    config["NET_DIR"] = NET_DIR
     return NET_DIR
                           
     
@@ -94,19 +91,16 @@ def check_path(config):
         raise Exception("Graph Path not found")
     if not os.path.exists(config['MODEL_DIR']):
         raise Exception("Model Path not found")
-    if not os.path.exists(config['NET_REFER']):
-        raise Exception("Network Refer Path not found")
-    if not os.path.exists(config['FRAG_REF']):
-        raise Exception("Functional Group Reference Path not found")
-    if not os.path.exists(config['NET_DIR']):
-        raise Exception("Network Path not found")
 
 
-def find_model_path(model_name,config):
-    if 'MODEL_DIR' in config:
-        MODEL_DIR = config['MODEL_DIR']
+def find_model_path(model_name,config=None):
+    if config is None:
+        MODEL_DIR = "."
     else:
-        MODEL_DIR = init_model_path(config)
+        if 'MODEL_DIR' in config:
+            MODEL_DIR = config['MODEL_DIR']
+        else:
+            MODEL_DIR = init_MODEL_DIR(config)
     for root, dirs, files in os.walk(MODEL_DIR):
         if model_name in dirs:
             MODEL_PATH = os.path.join(root,model_name)
@@ -119,11 +113,12 @@ def get_model_path(config, make_dir=True):
     if 'MODEL_DIR' in config:
         MODEL_DIR = config['MODEL_DIR']
     else:
-        MODEL_DIR = init_model_path(config)
+        MODEL_DIR = init_MODEL_DIR(config)
 
     if config['version']=="1.0":
         if config.get('TRANSFER_PATH',None) is not None:
-            path = os.path.join(MODEL_DIR,config['TRANSFER_PATH']+"~"+config['data']+'_'+','.join(config['target']))
+            tf_name = config['TRANSFER_PATH'].split('/')[-1]
+            path = os.path.join(MODEL_DIR,tf_name+"~"+config['network']+"_"+config['data']+'_'+','.join(config['target']))
         else:
             path = os.path.join(MODEL_DIR,config['network']+"_"+config['data']+'_'+','.join(config['target']))
         if 'sculptor_index' in config:

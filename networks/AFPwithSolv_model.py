@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch
 
-from networks.src.AFP import Atom_AttentiveFP, Mol_AttentiveFP
-from networks.src.SolventLayer import SolventLayer
+from D4CMPP.networks.src.AFP import Atom_AttentiveFP, Mol_AttentiveFP
+from D4CMPP.networks.src.SolventLayer import SolventLayer
 
 class network(nn.Module):
     def __init__(self, config):

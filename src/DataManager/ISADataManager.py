@@ -13,7 +13,7 @@ class ISADataManager(MolDataManager):
         print("Sculptor Index:",sculptor_index)
         self.graph_type = 'img'+str(sculptor_index[0])+str(sculptor_index[1])+str(sculptor_index[2])
         self.gg = ISAGraphGenerator(
-            self.config.get('frag_ref',self.config['FRAG_REF']),
+            self.config['MODEL_PATH']+'/functional_group.csv',
             sculptor_index
         )
         self.dataset =ISAGraphDataset

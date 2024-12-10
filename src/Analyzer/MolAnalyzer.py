@@ -8,36 +8,36 @@ import importlib
 
 import rdkit.Chem as Chem
 
+from D4CMPP.src.utils import PATH, module_loader
 
 class MolAnalyzer:
     """The class for additional tasks after the training."""
-    def __init__(self, model_path, save_result = True):
+    def __init__(self, model_path, save_result = False):
         """
         Args:
             model_path (str): The path to the model.
             save_result (bool): If True, every calculated result will be saved in the model_path.        
         """
-        self.model_path = model_path
+        self.model_path = PATH.find_model_path(model_path)
         self.save_result = save_result 
         self.data_path = os.path.join(model_path, 'data')
-        if not os.path.exists(self.data_path):
+        if not os.path.exists(self.data_path) and self.save_result:
             os.makedirs(self.data_path)
         
-        config = yaml.load(open(os.path.join(model_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
-        config['MODEL_PATH'] = model_path
-        config['LOAD_PATH'] = model_path
-        self.nm = getattr(importlib.import_module(config.get("NetworkManager_PATH","src.NetworkManager")+"."+config['network_manager_module']),config['network_manager_class'])(config, unwrapper = None)
-        config.update(self.nm.config)
-        self.dm = getattr(importlib.import_module(config.get("DataManager_PATH","src.DataManager")+"."+config['data_manager_module']),config['data_manager_class'])(config)
-        self.tm = getattr(importlib.import_module(config.get("TrainManager_PATH","src.TrainManager")+"."+config['train_manager_module']),config['train_manager_class'])(config)
+        config = yaml.load(open(os.path.join(self.model_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
+        config['MODEL_PATH'] = self.model_path
+        config['LOAD_PATH'] = self.model_path
+        self.nm = module_loader.load_network_manager(config)(config, unwrapper = None, temp= True)
+        self.dm = module_loader.load_data_manager(config)(config)
+        self.tm = module_loader.load_train_manager(config)(config)
         self.nm.set_unwrapper(self.dm.unwrapper)
 
 
         # load scaler
-        if not os.path.exists(os.path.join(model_path,'scaler.pkl')):
+        if not os.path.exists(os.path.join(self.model_path,'scaler.pkl')):
             self.scaler = None
         else:
-            with open(os.path.join(model_path,'scaler.pkl'), 'rb') as f:
+            with open(os.path.join(self.model_path,'scaler.pkl'), 'rb') as f:
                 self.scaler = pickle.load(f)
 
         # the data types to save

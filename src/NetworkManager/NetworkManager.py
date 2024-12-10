@@ -1,17 +1,15 @@
 import torch
 import importlib
-import os
+import os, sys
 import yaml
 import pandas as pd
 import numpy as np
+import re
 from D4CMPP.src.utils import PATH
-    
+import time
 class NetworkManager:
 
-    # 현재 작업 디렉토리를 얻어서 PYTHONPATH에 추가
-
-    "The class where every operation of the network is managed"
-    def __init__(self, config,tf=False, unwrapper=None):
+    def __init__(self, config, tf_path=None, unwrapper=None, temp=False):
         
         self.config = config
         self.device = config.get('device', 'cpu')
@@ -21,47 +19,31 @@ class NetworkManager:
         self.es_patience = config.get('early_stopping_patience',50)
         self.es_counter = 0
         self.state= "train"
-        self.tf = tf
+        self.tf_path = tf_path
         self.schedulers = []
+        self.temp = temp
 
-        if self.config.get('LOAD_PATH',None) is not None:
-            if self.tf:
-                self.transferlearn_network()
-            else:
-                self.load_network()
+        if self.tf_path:
+            self.transferlearn_network()
         else:
             self.init_network()
+
         self.init_optimizer(config.get('lr_dict',{}) )
         self.init_scheduler()
 
     def set_unwrapper(self, unwrapper):
         self.unwrapper = unwrapper
 
-    def get_net_module(self,config=None):
-        if config is None:
-            config = self.config
-        # print(config['NET_DIR'])  
-        if os.path.exists(config['MODEL_PATH']+"/network.py"):
-            net_path = config['MODEL_PATH']+"/network"
-        elif os.path.exists(os.path.join(config['NET_DIR'], config['network']+'.py')):
-            net_path = os.path.join(config['NET_DIR'], config['network'])
+    def get_net_module(self,model_path=None):
+        if model_path is None:
+            model_path = self.config['MODEL_PATH']
+        if os.path.exists(os.path.join(model_path,'network.py')):
+            sys.path.append(model_path)
+            module = importlib.import_module('network')
+            net = getattr(module, 'network')
+            return net
         else:
-            raise Exception("Network module not found")
-
-        if os.path.isabs(net_path) and '/D4CMPP/' in net_path:
-            net_path = 'D4CMPP'+net_path.split('D4CMPP')[-1]
-        elif os.path.isabs(net_path):
-            pwd = os.getcwd()
-            print('@',pwd)
-            print('@',net_path)
-            if pwd in net_path:
-                net_path = net_path.replace(pwd+'/','')
-            else:
-                raise Exception("Absolute path is not allowed for the network module")
-        
-        if net_path.startswith('./'):
-            net_path=net_path.replace('./','')
-        return importlib.import_module(net_path.replace('/','.')).network
+            raise FileNotFoundError(model_path+"/network.py not found")
 
     # Initialize the network
     def init_network(self):
@@ -71,34 +53,19 @@ class NetworkManager:
         print(f"#params: {sum(p.numel() for p in self.network.parameters() if p.requires_grad)}" )
         self.loss_fn = self.network.loss_fn
 
-        # Copy the script of the network to the model directory
-        os.makedirs(self.config['MODEL_PATH'], exist_ok=True)
-        os.system(f"""cp '{self.config['NET_DIR']}/{self.config['network']}.py' '{self.config['MODEL_PATH']}/network.py' """)
-        # Save the configuration
-        with open(os.path.join(self.config['MODEL_PATH'],'config.yaml'), 'w') as file:
-            yaml.dump(self.config, file, default_flow_style=False)
+        if os.path.exists(os.path.join(self.config['MODEL_PATH'],'result','learning_curve.csv')):
+            self.learning_curve = pd.read_csv(os.path.join(self.config['MODEL_PATH'],'result','learning_curve.csv'))
+        else:
+            self.learning_curve = None
 
-    # Load the network
-    def load_network(self):
-        module = self.get_net_module()
-        self.network = module(self.config)
-        self.network.to(device = self.device)
-        print(f"#params: {sum(p.numel() for p in self.network.parameters() if p.requires_grad)}" )
-        self.loss_fn = self.network.loss_fn
-
-        path = self.config['LOAD_PATH']
-        self.config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
-        self.learning_curve = pd.read_csv(os.path.join(path,'learning_curve.csv'))
-        self.load_params(os.path.join(path,'final.pth'))
+        if os.path.exists(os.path.join(self.config['MODEL_PATH'],'final.pth')):
+            self.load_params(os.path.join(self.config['MODEL_PATH'],'final.pth'))
         
 
     # Transfer learning
     def transferlearn_network(self):
-        prev_config = yaml.load(open(os.path.join(self.config['LOAD_PATH'],'config.yaml'), 'r'), Loader=yaml.FullLoader)
-        prev_config.update(self.config)
-        self.config = prev_config
         self.init_network()        
-        self.load_params_transfer_learn(self.config['LOAD_PATH'])
+        self.load_params_transfer_learn(self.tf_path)
 
     # Initialize the optimizer
     def init_optimizer(self,lr_dict={}):        
@@ -218,16 +185,18 @@ class NetworkManager:
             return None
 
     def load_params(self, path):
-        self.network.load_state_dict(torch.load(path))
+        self.network.load_state_dict(torch.load(path, weights_only=True, map_location=self.device))
 
-    def load_params_transfer_learn(self, path):
-        config = yaml.load(open(os.path.join(path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
-        module = self.get_net_module(config)
-        origin_network = module(config)
-        params = torch.load(os.path.join(path,'final.pth'), map_location=self.device)
-        origin_network.load_state_dict(params)
+    def load_params_transfer_learn(self, tf_path):
+        # first, load the pretrained network
+        config = yaml.load(open(os.path.join(tf_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
+        module = self.get_net_module(tf_path)
+        pretrained_network = module(config)
+        params = torch.load(os.path.join(tf_path,'final.pth'), map_location=self.device)
+        pretrained_network.load_state_dict(params)
 
-        pretrained_dict = origin_network.state_dict()
+        # then, load params of pretrained network to the current network
+        pretrained_dict = pretrained_network.state_dict()
         model_dict = self.network.state_dict()
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
         for k in pretrained_dict.keys():
@@ -237,7 +206,7 @@ class NetworkManager:
             else:
                 print(f"Param {k} loaded")
         model_dict.update(pretrained_dict)
-        self.network.load_state_dict(model_dict)        
+        self.network.load_state_dict(model_dict)
 
     def save_params(self, path):
         torch.save(self.network.state_dict(), path)

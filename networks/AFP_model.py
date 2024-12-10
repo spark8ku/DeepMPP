@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch
 
-from networks.src.AFP import  AttentiveFP
-from networks.src.Linear import Linears
-from networks.src.MPNN import MPNNs
+from D4CMPP.networks.src.AFP import  AttentiveFP
+from D4CMPP.networks.src.Linear import Linears
+from D4CMPP.networks.src.MPNN import MPNNs
 from dgl.nn import SumPooling
 
 class network(nn.Module):

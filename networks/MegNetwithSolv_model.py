@@ -2,9 +2,9 @@ import torch.nn as nn
 import torch
 from dgl.nn import Set2Set
 
-from networks.src.MegNet import MegNets, Megnet_pooling
-from networks.src.Linear import Linears
-from networks.src.SolventLayer import SolventLayer
+from D4CMPP.networks.src.MegNet import MegNets, Megnet_pooling
+from D4CMPP.networks.src.Linear import Linears
+from D4CMPP.networks.src.SolventLayer import SolventLayer
 
 class network(nn.Module):
     def __init__(self, config):

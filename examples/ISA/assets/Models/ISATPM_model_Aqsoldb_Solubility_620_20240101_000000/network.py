@@ -4,9 +4,9 @@ import torch.nn as nn
 import dgl
 from dgl.nn import SumPooling
 
-from networks.src.ISAT import ISATconvolution_PM
-from networks.src.Linear import Linears
-from networks.src.BiDropout import Bi_Dropout
+from D4CMPP.networks.src.ISAT import ISATconvolution_PM
+from D4CMPP.networks.src.Linear import Linears
+from D4CMPP.networks.src.BiDropout import Bi_Dropout
 
 class network(nn.Module):
     def __init__(self, config):

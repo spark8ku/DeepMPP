@@ -1,6 +1,6 @@
 
-from networks.src.GCN import GCNs
-from networks.src.Linear import Linears
+from D4CMPP.networks.src.GCN import GCNs
+from D4CMPP.networks.src.Linear import Linears
 import torch.nn as nn
 import torch
 from dgl.nn import SumPooling

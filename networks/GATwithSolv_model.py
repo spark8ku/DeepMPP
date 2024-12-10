@@ -2,8 +2,8 @@ import torch.nn as nn
 import torch
 from dgl.nn import SumPooling
 
-from networks.src.GAT import GATs
-from networks.src.SolventLayer import SolventLayer
+from D4CMPP.networks.src.GAT import GATs
+from D4CMPP.networks.src.SolventLayer import SolventLayer
 
 class network(nn.Module):
     def __init__(self, config):
