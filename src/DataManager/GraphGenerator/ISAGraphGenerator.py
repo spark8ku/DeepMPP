@@ -26,7 +26,8 @@ class ISAGraphGenerator(MolGraphGenerator):
         mol = Chem.MolFromSmiles(smi)
         if mol is None: 
             raise Exception("Invalid SMILES: failed to generate mol object")
-
+        if kwargs.get("explicit_h",False):
+            mol = Chem.AddHs(mol)
         g = self.generate_graph(mol, **kwargs)
         atom_feature = self.af(mol)
         bond_feature = self.bf(mol)

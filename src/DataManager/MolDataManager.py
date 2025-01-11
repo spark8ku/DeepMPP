@@ -118,9 +118,7 @@ class MolDataManager:
             else:
                 graphgenerator = self.gg
             try:
-                if col in self.explicit_h_columns:
-                    smi  = Chem.MolToSmiles(Chem.AddHs(Chem.MolFromSmiles(smi)))
-                g=graphgenerator.get_graph(smi, **self.config)
+                g=graphgenerator.get_graph(smi, explicit_h = col in self.explicit_h_columns, **self.config)
             except Exception as e:
                 g = graphgenerator.get_empty_graph() # save the empty graph instead of the failed graph
                 invalids.append(pd.DataFrame({'smiles':[smi],'type':[col],'reason':[str(e)]}))
@@ -213,7 +211,9 @@ class MolDataManager:
         print(f"Train: {len(self.train_dataset)}, Val: {len(self.val_dataset)}, Test: {len(self.test_dataset)}")
     
     # Initialize the dataloader
-    def init_Dataloader(self,dataset,partial_train=1.0, shuffle=False):
+    def init_Dataloader(self,dataset=None,partial_train=1.0, shuffle=False):
+        if dataset is None:
+            dataset = self.whole_dataset
         if partial_train and partial_train<1.0 and partial_train>0:
             dataset = dataset.get_subDataset(np.random.choice(len(self.train_dataset),int(len(self.train_dataset)*partial_train),replace=False))
             print(f"Partial Training: {len(self.train_dataset)}")
@@ -223,7 +223,7 @@ class MolDataManager:
                         shuffle=shuffle,
                         collate_fn=self.dataset.collate, 
                         pin_memory=self.config.get('pin_memory',True),
-                        num_workers=self.config.get('num_workers',2))
+                        num_workers=self.config.get('num_workers',0))
 
     # (main function) Provide the dataloader for the training, validation, and test
     def get_Dataloaders(self, temp=False):

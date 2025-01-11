@@ -1,18 +1,17 @@
 import torch
-import importlib
+import importlib.util
 import os, sys
 import yaml
 import pandas as pd
 import numpy as np
-import re
-from D4CMPP.src.utils import PATH
-import time
+
 class NetworkManager:
 
     def __init__(self, config, tf_path=None, unwrapper=None, temp=False):
         
         self.config = config
         self.device = config.get('device', 'cpu')
+        print(f"Device: {self.device}")
         self.last_lr = config.get('learning_rate',0.001)
         self.unwrapper = unwrapper
         self.best_loss = float('inf')
@@ -38,8 +37,9 @@ class NetworkManager:
         if model_path is None:
             model_path = self.config['MODEL_PATH']
         if os.path.exists(os.path.join(model_path,'network.py')):
-            sys.path.append(model_path)
-            module = importlib.import_module('network')
+            spec1 = importlib.util.spec_from_file_location("network", os.path.join(model_path,"network.py"))
+            module = importlib.util.module_from_spec(spec1)
+            spec1.loader.exec_module(module)
             net = getattr(module, 'network')
             return net
         else:
@@ -60,6 +60,15 @@ class NetworkManager:
 
         if os.path.exists(os.path.join(self.config['MODEL_PATH'],'final.pth')):
             self.load_params(os.path.join(self.config['MODEL_PATH'],'final.pth'))
+        else:
+            losses = []
+            for file in os.listdir(self.config['MODEL_PATH']):
+                if file.startswith("param_") and file.endswith(".pth"):
+                    losses.append(float(file.split("_")[1].replace(".pth","")))
+            if losses:
+                self.best_loss = min(losses)
+                self.load_params(os.path.join(self.config['MODEL_PATH'],'param_'+str(self.best_loss)+'.pth')
+                )
         
 
     # Transfer learning
@@ -185,10 +194,12 @@ class NetworkManager:
             return None
 
     def load_params(self, path):
+        print(f"Loading params from {path}")
         self.network.load_state_dict(torch.load(path, weights_only=True, map_location=self.device))
 
     def load_params_transfer_learn(self, tf_path):
         # first, load the pretrained network
+        print(f"Transfer learning from {tf_path}")
         config = yaml.load(open(os.path.join(tf_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
         module = self.get_net_module(tf_path)
         pretrained_network = module(config)

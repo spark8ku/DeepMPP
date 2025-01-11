@@ -28,15 +28,29 @@ class ISAGraphDataset(Dataset):
         if self.target.dim() == 1:
             self.target = self.target.unsqueeze(-1)
 
-    def subDataset(self, idx):
-        self.graphs = [self.graphs[i] for i in idx]
-        self.r_node = [self.r_node[i] for i in idx]
-        self.r2r_edge = [self.r2r_edge[i] for i in idx]
-        self.i_node = [self.i_node[i] for i in idx]
-        self.d_node = [self.d_node[i] for i in idx]
-        self.d2d_edge = [self.d2d_edge[i] for i in idx]
-        self.target = self.target[np.array(idx, dtype=int)]
-        self.smiles = [self.smiles[i] for i in idx]
+    # def subDataset(self, idx):
+    #     self.graphs = [self.graphs[i] for i in idx]
+    #     self.r_node = [self.r_node[i] for i in idx]
+    #     self.r2r_edge = [self.r2r_edge[i] for i in idx]
+    #     self.i_node = [self.i_node[i] for i in idx]
+    #     self.d_node = [self.d_node[i] for i in idx]
+    #     self.d2d_edge = [self.d2d_edge[i] for i in idx]
+    #     self.target = self.target[np.array(idx, dtype=int)]
+    #     self.smiles = [self.smiles[i] for i in idx]
+
+    def get_subDataset(self, idx):
+        graphs = [self.graphs[i] for i in idx]
+        r_node = [self.r_node[i] for i in idx]
+        r2r_edge = [self.r2r_edge[i] for i in idx]
+        i_node = [self.i_node[i] for i in idx]
+        d_node = [self.d_node[i] for i in idx]
+        d2d_edge = [self.d2d_edge[i] for i in idx]
+        target = [self.target[i] for i in idx]
+        smiles = [self.smiles[i] for i in idx]
+        
+        dataset = ISAGraphDataset()
+        dataset.reload((graphs, r_node, r2r_edge, i_node, d_node, d2d_edge, target, smiles))
+        return dataset
 
     @staticmethod
     def collate(samples):

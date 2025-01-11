@@ -27,13 +27,25 @@ class OverallGraphdataset(GraphDataset):
         if self.target.dim() == 1:
             self.target = self.target.unsqueeze(-1)
 
-    def subDataset(self, idx):
-        self.graphs = [self.graphs[i] for i in idx]
-        self.node_feature = [self.node_feature[i] for i in idx]
-        self.edge_feature = [self.edge_feature[i] for i in idx]
-        self.graph_feature = [self.graph_feature[i] for i in idx]
-        self.target = self.target[np.array(idx, dtype=int)]
-        self.smiles = [self.smiles[i] for i in idx]
+    # def subDataset(self, idx):
+    #     self.graphs = [self.graphs[i] for i in idx]
+    #     self.node_feature = [self.node_feature[i] for i in idx]
+    #     self.edge_feature = [self.edge_feature[i] for i in idx]
+    #     self.graph_feature = [self.graph_feature[i] for i in idx]
+    #     self.target = self.target[np.array(idx, dtype=int)]
+    #     self.smiles = [self.smiles[i] for i in idx]
+
+    def get_subDataset(self, idx):
+        graphs = [self.graphs[i] for i in idx]
+        node_feature = [self.node_feature[i] for i in idx]
+        edge_feature = [self.edge_feature[i] for i in idx]
+        graph_feature = [self.graph_feature[i] for i in idx]
+        target = [self.target[i] for i in idx]
+        smiles = [self.smiles[i] for i in idx]
+        
+        dataset = OverallGraphdataset()
+        dataset.reload((graphs, node_feature, edge_feature, graph_feature, target, smiles))
+        return dataset
 
     @staticmethod
     def collate(samples):

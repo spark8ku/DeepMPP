@@ -126,7 +126,7 @@ def train(**kwargs):
     config = set_config(**kwargs)
     if not config.get('loaded',False):
         supportfile_saver.save_additional_files(config)
-    run(config)
+    return run(config)
 
 def check_args(**kwargs):
     "check the arguments for the training"
@@ -239,6 +239,7 @@ def run(config):
     pp.postprocess(dm, nm, tm, train_loaders, val_loaders, test_loaders)
     if e is not None:
         raise e
+    return config['MODEL_PATH']
 
 if __name__ == "__main__":
     train(**config0, use_argparser=True)

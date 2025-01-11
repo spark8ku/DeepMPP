@@ -118,6 +118,10 @@ def get_model_path(config, make_dir=True):
     if config['version']=="1.0":
         if config.get('TRANSFER_PATH',None) is not None:
             tf_name = config['TRANSFER_PATH'].split('/')[-1]
+            try:
+                tf_name = "_".join(tf_name.split('_')[:-2])
+            except:
+                pass
             path = os.path.join(MODEL_DIR,tf_name+"~"+config['network']+"_"+config['data']+'_'+','.join(config['target']))
         else:
             path = os.path.join(MODEL_DIR,config['network']+"_"+config['data']+'_'+','.join(config['target']))

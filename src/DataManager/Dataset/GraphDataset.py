@@ -71,13 +71,28 @@ class GraphDataset_withSolv(GraphDataset):
         super().reload(args)
 
 
-    def subDataset(self, idx):
-        super().subDataset(idx)
-        self.solv_graphs = [self.solv_graphs[i] for i in idx]
-        self.solv_node_feature = [self.solv_node_feature[i] for i in idx]
-        self.solv_edge_feature = [self.solv_edge_feature[i] for i in idx]
-        self.solv_smiles = [self.solv_smiles[i] for i in idx]
+    # def subDataset(self, idx):
+    #     super().subDataset(idx)
+    #     self.solv_graphs = [self.solv_graphs[i] for i in idx]
+    #     self.solv_node_feature = [self.solv_node_feature[i] for i in idx]
+    #     self.solv_edge_feature = [self.solv_edge_feature[i] for i in idx]
+    #     self.solv_smiles = [self.solv_smiles[i] for i in idx]
 
+    def get_subDataset(self, idx):
+        graphs = [self.graphs[i] for i in idx]
+        node_feature = [self.node_feature[i] for i in idx]
+        edge_feature = [self.edge_feature[i] for i in idx]
+        target = [self.target[i] for i in idx]
+        smiles = [self.smiles[i] for i in idx]        
+        
+        solv_graphs = [self.solv_graphs[i] for i in idx]
+        solv_node_feature = [self.solv_node_feature[i] for i in idx]
+        solv_edge_feature = [self.solv_edge_feature[i] for i in idx]
+        solv_smiles = [self.solv_smiles[i] for i in idx]
+
+        dataset = GraphDataset()
+        dataset.reload((graphs, node_feature, edge_feature, target, smiles, solv_graphs, solv_node_feature, solv_edge_feature, solv_smiles))
+        return dataset
 
 
     @staticmethod

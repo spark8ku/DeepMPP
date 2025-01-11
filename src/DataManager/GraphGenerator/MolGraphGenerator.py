@@ -19,8 +19,8 @@ class MolGraphGenerator:
     # Get the graph from the SMILES
     def get_graph(self,smi,**kwargs):
         mol = Chem.MolFromSmiles(smi)
-        
-        if mol.GetNumAtoms() == 1:
+            
+        if kwargs.get("explicit_h",False):
             mol = Chem.AddHs(mol)
         if mol is None: 
             raise Exception("Invalid SMILES: failed to generate mol object")

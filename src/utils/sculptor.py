@@ -37,7 +37,7 @@ class Subgroup():
         else:
             smi=Chem.MolFragmentToSmiles(self.mol,[int(j) for j in self.atoms])
             self.smiles=smi #remove_index(smi)
-        self.atoms = [int(i)-1 for i in re.findall(r'\:(\d+)\]',self.smiles)]
+        # self.atoms = [int(i)-1 for i in re.findall(r'\:(\d+)\]',self.smiles)]
 
     def specify_group(self):
         # smiles=get_fragment_with_branch(self.mol,self.atoms)
@@ -225,7 +225,7 @@ class SubgroupSplitter(object):
                                      log=None,
                                      draw=None,
                                     get_index=None,
-                                    atom_with_index=True,
+                                    atom_with_index=False,
                                     star_threshold=4,
                                     concat_double_bond_with_ring=False):
         if split_order is None: split_order=self.split_order
@@ -679,13 +679,16 @@ def Concat_overlapped(mol, frags, names, _unoverlapped_result=None, _unoverlappe
 
 
 
-
+import rdkit
 import re
 def get_fragment_with_branch(smi,at_idx):
     if type(smi)==type(''):
         mol= Chem.MolFromSmiles(smi)
     else:
         mol= smi
+    mol = remove_index_from_mol(mol)
+    smi = Chem.MolToSmiles(mol, allHsExplicit=False, allBondsExplicit=False)
+    mol = Chem.MolFromSmiles(smi)
     emol=Chem.EditableMol(mol)
     for i in mol.GetBonds():
         bond=[i.GetBeginAtomIdx(),i.GetEndAtomIdx()]
@@ -695,9 +698,12 @@ def get_fragment_with_branch(smi,at_idx):
             emol.AddBond(r,n,order=i.GetBondType())
             emol.RemoveBond(bond[0],bond[1])
     rs=(Chem.MolToSmiles(emol.GetMol(),kekuleSmiles=False)).split('.')
-
     return remove_index(rs[0])
 
 def remove_index(smi):
     return re.sub(r'\[(.)\1{0,1}H\d?\]',r'\1',smi)
     
+def remove_index_from_mol(mol):
+    for atom in mol.GetAtoms():
+        atom.SetAtomMapNum(0)
+    return mol
