@@ -35,7 +35,7 @@ class Trainer():
                         self.learning_curve=pd.DataFrame(row).transpose()
                     else:
                         self.learning_curve = pd.concat([self.learning_curve,pd.DataFrame(row).transpose()],axis=0)
-
+                    self.learning_curve.to_csv(self.model_path+'/learning_curve.csv',index=False)
                     if network_manager.scheduler_step(epoch_val_loss):
                         break
                              
