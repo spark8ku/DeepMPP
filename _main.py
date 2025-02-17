@@ -93,6 +93,8 @@ def train(**kwargs):
                       the path to the network reference file. 
         MODEL_DIR   : str. Default= "./_Models"
                       the path to the directory to save the models.
+        MODEL_PATH  : str. Default= None
+                      the path to the directory to save the model. If None, it will be created in the MODEL_DIR.
         GRAPH_DIR  : str. Default= "./_Graphs"
                       the path to the directory to save the graphs.
         FRAG_REF    : str. Default= "{src}/utils/functional_group.csv"
