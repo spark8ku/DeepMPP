@@ -115,7 +115,6 @@ def get_model_path(config, make_dir=True):
     else:
         MODEL_DIR = init_MODEL_DIR(config)
 
-    print(config)
     if config['version']=="1.0":
         if config.get('MODEL_PATH',None) is not None:
             path = config['MODEL_PATH'].split('/')[-1]

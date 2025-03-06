@@ -39,9 +39,10 @@ class PostProcessor:
         self.save_model_summary(nm.network,tm.run_time)
 
         try:
-            prediction_df = self.save_prediction(nm, tm, train_loaders, val_loaders, test_loaders, scaler=dm.scaler)
-            self.plot_prediction(self.config.get("target"),prediction_df)
-            self.save_metrics(self.config.get("target"),prediction_df)
+            if self.config.get("save_prediction",True):
+                prediction_df = self.save_prediction(nm, tm, train_loaders, val_loaders, test_loaders, scaler=dm.scaler)
+                self.plot_prediction(self.config.get("target"),prediction_df)
+                self.save_metrics(self.config.get("target"),prediction_df)
         except:
             print(traceback.format_exc())
             print("Prediction saving failed")

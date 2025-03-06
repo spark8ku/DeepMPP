@@ -67,8 +67,11 @@ class GraphDataset_withSolv(GraphDataset):
         return args + (self.solv_graphs[idx], self.solv_node_feature[idx], self.solv_edge_feature[idx], self.solv_smiles[idx])
     
     def reload(self, data):
-        *args, self.solv_graphs, self.solv_node_feature, self.solv_edge_feature, self.solv_smiles = data
-        super().reload(args)
+        self.graphs, self.node_feature, self.edge_feature, self.target, self.smiles, self.solv_graphs, self.solv_node_feature, self.solv_edge_feature, self.solv_smiles = data
+        
+        self.target= torch.stack(self.target,dim=0)
+        if self.target.dim() == 1:
+            self.target = self.target.unsqueeze(-1)
 
 
     # def subDataset(self, idx):
@@ -90,7 +93,7 @@ class GraphDataset_withSolv(GraphDataset):
         solv_edge_feature = [self.solv_edge_feature[i] for i in idx]
         solv_smiles = [self.solv_smiles[i] for i in idx]
 
-        dataset = GraphDataset()
+        dataset = GraphDataset_withSolv()
         dataset.reload((graphs, node_feature, edge_feature, target, smiles, solv_graphs, solv_node_feature, solv_edge_feature, solv_smiles))
         return dataset
 

@@ -86,6 +86,7 @@ def train(**kwargs):
         pin_memory  : bool. Default= False
                       If True, the data loader will copy Tensors into CUDA pinned memory before returning them.
         split_random_seed: int. Default= 42,
+        save_prediction: bool. Default= True,
             
         DATA_PATH   : str. Default= None
                       the path of directory that contains the data file. If None, it will walk the subpath.
@@ -181,6 +182,7 @@ def set_config(**kwargs):
         # load the config from the transfer path
         with open(config['TRANSFER_PATH']+'/config.yaml', "r") as file:
             _config = yaml.safe_load(file)
+            _config.pop('MODEL_PATH',None)
         _config.update(config)
         config = _config
         config['MODEL_PATH'] = PATH.get_model_path(config)
