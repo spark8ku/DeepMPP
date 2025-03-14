@@ -10,35 +10,29 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch import edge_softmax
 
-
 class Atom_AFPLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.hidden_dim = config['hidden_dim']
-        self.embedding_node_lin = nn.Sequential(
-            nn.Linear(self.hidden_dim, self.hidden_dim, bias=True),
-            nn.LeakyReLU()
-        )
         self.embedding_edge_lin = nn.Sequential(
             nn.Linear(self.hidden_dim + self.hidden_dim, self.hidden_dim, bias=True),
+            nn.Dropout(config['dropout']),
             nn.LeakyReLU()
         )
         self.cal_alignment = nn.Sequential(
-            nn.Dropout(config['dropout']),
             nn.Linear(self.hidden_dim + self.hidden_dim, 1, bias=True),
-            nn.LeakyReLU()
         )
         self.attend = nn.Sequential(
-            nn.Linear(self.hidden_dim, self.hidden_dim, bias=True)
+            nn.Linear(self.hidden_dim, self.hidden_dim, bias=True),
+            nn.Dropout(config['dropout']),
         )
         self.GRUCell = nn.GRUCell(self.hidden_dim, self.hidden_dim)
         self.dropout = nn.Dropout(config['dropout'])
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.embedding_node_lin[0].reset_parameters()
         self.embedding_edge_lin[0].reset_parameters()
-        self.cal_alignment[1].reset_parameters()
+        self.cal_alignment[0].reset_parameters()
         self.attend[0].reset_parameters()
         self.GRUCell.reset_parameters()
 
@@ -58,18 +52,18 @@ class Atom_AFPLayer(nn.Module):
 
     def forward(self, graph, node, edge):
         graph = graph.local_var()
-        graph.ndata['node_feats'] = node
-        graph.ndata['node_embedded_feats'] = self.embedding_node_lin(graph.ndata['node_feats'])
+        graph.ndata['node_embedded_feats'] = node
         graph.edata['edge_feats'] = edge
 
         # update the edge feats by concat edge feats together with the neighborhood node feats
         graph.apply_edges(self.update_edge_by_neighbor)
         graph.apply_edges(self.cal_alignment_score)
-        graph.edata['att_context'] = edge_softmax(graph, graph.edata['score']) * self.attend(graph.edata['neighbor_message'])
+        # att= edge_softmax(graph, graph.edata['score'])
+        graph.edata['att_context'] = self.attend(graph.edata['neighbor_message']) #* att
         graph.update_all(self.att_context_passing, self.cal_context)
         context = nn.ELU()(graph.ndata['context'])
-        new_node = nn.ReLU()(self.GRUCell(context, graph.ndata['node_embedded_feats']))
-        # new_node = context + graph.ndata['node_embedded_feats']
+        # new_node = F.relu(self.GRUCell( graph.ndata['node_embedded_feats'], context))
+        new_node = node + graph.ndata['context']
         return new_node
 
 class Mol_AFPLayer(nn.Module):
@@ -82,8 +76,8 @@ class Mol_AFPLayer(nn.Module):
             nn.LeakyReLU()
         )
         self.attend = nn.Sequential(
+            nn.Linear(config['hidden_dim'], config['hidden_dim'], bias=True),
             nn.Dropout(config['dropout']),
-            nn.Linear(config['hidden_dim'], config['hidden_dim'], bias=True)
         )
         self.dropout = nn.Dropout(config['dropout'])
         self.reset_parameters()
@@ -91,7 +85,7 @@ class Mol_AFPLayer(nn.Module):
     def reset_parameters(self):
         self.GRUCell.reset_parameters()
         self.cal_alignment[0].reset_parameters()
-        self.attend[1].reset_parameters()
+        self.attend[0].reset_parameters()
 
     def forward(self, graph, super_node, node):
         graph = graph.local_var()
@@ -101,8 +95,8 @@ class Mol_AFPLayer(nn.Module):
         graph.ndata['attention_weight'] = dgl.softmax_nodes(graph, 'score')
         graph.ndata['hidden_node'] = self.attend(self.dropout(node))
         super_context = F.elu(dgl.sum_nodes(graph, 'hidden_node', 'attention_weight'))
-        # super_node = super_context + super_node
-        super_node = F.relu(self.GRUCell(super_context, super_node))
+        
+        super_node = F.relu(self.GRUCell(super_node, super_context))
         return super_node, graph.ndata['attention_weight']
 
 
@@ -117,8 +111,6 @@ class AttentiveFP(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        for l in self.PassingDepth:
-            l.reset_parameters()
 
         for l in self.MultiTimeSteps:
             l.reset_parameters()
@@ -134,28 +126,5 @@ class AttentiveFP(nn.Module):
             for i in range(len(self.MultiTimeSteps)):
                 super_node, att_w = self.MultiTimeSteps[i](graph, super_node, node)
         return super_node, att_w
-
-
-class Mol_AttentiveFP(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.MultiTimeSteps = nn.ModuleList([Mol_AFPLayer(config) for d in range(config['mol_layers'])])
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        for l in self.MultiTimeSteps:
-            l.reset_parameters()
-
-    def forward(self, graph, node):
-        with graph.local_scope():
-            attention_list = []
-            graph.ndata['hidden_node'] = node
-            super_node = dgl.sum_nodes(graph, 'hidden_node')
-            for step in self.MultiTimeSteps:
-                super_node, attention_t = step(graph, super_node, node)
-                attention_list.append(attention_t)
-            attention_list = torch.cat(attention_list, dim=1)
-        return super_node, attention_list
-
 
 

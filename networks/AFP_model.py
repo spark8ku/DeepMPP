@@ -9,7 +9,6 @@ from dgl.nn import SumPooling
 class network(nn.Module):
     def __init__(self, config):
         super().__init__()
-        config['mol_layers']=config.get('mol_layers', 1)
         config['dropout']=config.get('dropout', 0.2)
         config['hidden_dim']=config.get('hidden_dim', 64)
 
