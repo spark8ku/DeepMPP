@@ -134,7 +134,6 @@ class MolDataManager:
                 if hasattr(self, 'numeric_inputs'):
                     for _col in self.numeric_inputs:
                         self.numeric_inputs[_col] = self.numeric_inputs[_col][np.where(~invalid_index)]
-
             self.molecule_graphs[col].append(g)
         if len(invalids)>0:
             invalids = pd.concat(invalids) 

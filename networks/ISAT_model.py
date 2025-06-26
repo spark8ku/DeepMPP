@@ -43,7 +43,6 @@ class network(nn.Module):
         real_graph=graph.node_type_subgraph(['r_nd'])
         real_graph.set_batch_num_nodes(graph.batch_num_nodes('r_nd'))
         real_graph.set_batch_num_edges(graph.batch_num_edges('r2r'))
-        
         r_node, score = self.ISATconv(graph, r_node, r_edge, i_node, d_edge)
         
         h = self.reduce(real_graph, r_node)

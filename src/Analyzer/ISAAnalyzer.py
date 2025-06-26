@@ -15,7 +15,7 @@ from rdkit.Chem.Draw import rdMolDraw2D
 import rdkit.Chem as Chem
 
 
-from .MolAnalyzer import MolAnalyzer
+from .MolAnalyzer import MolAnalyzer, MolAnalyzer_v1p3
 
 class ISAAnalyzer(MolAnalyzer):
     """The class for additional tasks after the training. only for ISA type models"""
@@ -26,7 +26,6 @@ class ISAAnalyzer(MolAnalyzer):
         self.for_pickle = ['fragments', ]
         if getattr(self.tm,'get_score',None) is None:
             raise ValueError("This model does not support ISAAnalyzer.")
-        self.check_score_by_group()
     
 
     def check_score_by_group(self):
@@ -760,7 +759,206 @@ class ISAAnalyzer(MolAnalyzer):
 
     #     return frag, synergy_matrix, shaps
 
+         
+class ISAAnalyzer_v1p3(MolAnalyzer_v1p3, ISAAnalyzer):
+    """The class for additional tasks after the training. only for ISA type models"""
+    def __init__(self, model_path, save_result = False):
+        super().__init__(model_path , save_result)
+
+        if getattr(self.tm,'get_score',None) is None:
+            raise ValueError("This model does not support ISAAnalyzer.")
+    
+
+    def check_score_by_group(self):
+        if getattr(self.dm.gg,'sculptor',None) is None:
+            self.is_score_by_group = True
+        else:
+            temp_smiles='CC(C)(C)OC(=O)C1=CC=CC=C1C(=O)O'
+            inputs = {}
+            for col in self.molecule_columns:
+                inputs[col] = [temp_smiles,temp_smiles]
+            for col in self.numeric_input_columns:
+                inputs[col] = [0.0,0.0]
             
+            test_loader,_ = self.prepare_temp_data(**inputs)
+            temp_score = self.tm.get_score(self.nm, test_loader)
+
+    # get the attention score of the given smiles
+    def get_score(self, *args, **kwargs,):
+        kwargs,_ = self.handle_positional_args(args, kwargs)
+        "get the attention score of the given smiles by its subgroups"
+        test_loader,_ = self.prepare_temp_data(**kwargs)
+        result = self.tm.get_score(self.nm, test_loader)
+        for k in result.keys():
+            if type(result[k]) is torch.Tensor:
+                result[k] = result[k].detach().cpu().numpy()
+        return result
+    
+    # get the fragment of the given smiles
+    def get_fragment(self, smiles, get_index=False):
+        frag = None#self.load_data(smiles, 'fragments')
+        if frag is None:
+            sculptor = self.dm.gg.sculptor
+            frag = sculptor.fragmentation_with_condition(Chem.MolFromSmiles(smiles),draw=False,get_index = False)
+            self.save_data(smiles, {'fragments': frag})
+        if get_index:
+            return [f.atoms for f in iter(frag)]
+        return frag
+    
+    # get the hidden feature of the given smiles by its subgroups
+    def get_feature(self,*args, feature=None, **kwargs):
+        kwargs,_ = self.handle_positional_args(args, kwargs)
+        temp_loader,_ = self.prepare_temp_data(**kwargs)
+        result = self.tm.get_feature(self.nm, temp_loader)
+        for k in result.keys():
+            if type(result[k]) is torch.Tensor:
+                result[k] = result[k].detach().cpu().numpy()
+        if feature is not None and feature in result:
+            return result[feature]
+        else:
+            return result
+            
+
+    
+    def plot_score(self, *args, draw_mol_columns=None, feature=None, **kwargs):
+        """
+        This function plots the attention score of the given smiles by its subgroups.
+
+        Args:
+            atom_with_index (bool): Whether to show the atom index or not.
+            score_scaler (function): The function to scale the score. Default is lambda x:x.
+            ticks (list): The ticks of the colorbar. Default is [0,0.25,0.5,0.75,1].
+            rot (int): The rotation of the molecule. Default is 0.
+            locate (str): The location of the subplots. Default is 'right'. It can be 'right' or 'bottom'.
+            figsize (float): The size of the figure. Default is 1.
+            only_total (bool): Whether to plot only the total score or plot PAS and NAS as well. Default is False.
+            with_colorbar (bool): Whether to show the colorbar or not. Default is True.
+
+        Returns:
+            dict: The attention score of the given smiles.
+                  Each value in the dictionary is the attention score of corresponding atom with the same index.
+        
+        """
+        if draw_mol_columns is None:
+            raise ValueError("draw_mol_columns must be specified.")
+        if draw_mol_columns not in self.molecule_columns:
+            raise ValueError(f"{draw_mol_columns} is not a valid molecule column. Please choose from {self.molecule_columns}.")
+        if feature is None:
+            raise ValueError("feature must be specified.")
+
+        kwargs, other_kwargs = self.handle_positional_args(args, kwargs)
+        smiles = kwargs.get(draw_mol_columns, None)[0]
+        if smiles is None:
+            raise ValueError(f"{draw_mol_columns} must be specified in kwargs.")
+        score = {'positive': self.get_score(*args, **kwargs)[feature]}
+        return self._plot_score(smiles, score, **other_kwargs)
+        
+    
+    def _plot_score(self, smiles, score,*, atom_with_index=False, score_scaler=lambda x:x, ticks= [0,0.25,0.5,0.75,1], tick_type='manual',
+                   rot=0, line_width=2.0, locate='right',figsize=1, only_total=False, with_colorbar=True,**kwargs):
+        """
+        This function plots the attention score of the given smiles by its subgroups.
+
+        Args:
+            smiles (str): The smiles of the molecule.
+            atom_with_index (bool): Whether to show the atom index or not.
+            score_scaler (function): The function to scale the score. Default is lambda x:x.
+            ticks (list): The ticks of the colorbar. Default is [0,0.25,0.5,0.75,1].
+            tick_type (str): The type of the ticks. Default is 'manual'. It can be 'manual' or 'minmax'.
+            rot (int): The rotation of the molecule. Default is 0.
+            locate (str): The location of the subplots. Default is 'right'. It can be 'right' or 'bottom'.
+            figsize (float): The size of the figure. Default is 1.
+            only_total (bool): Whether to plot only the total score or plot PAS and NAS as well. Default is False.
+            with_colorbar (bool): Whether to show the colorbar or not. Default is True.
+
+        Returns:
+            dict: The attention score of the given smiles.
+                  Each value in the dictionary is the attention score of corresponding atom with the same index.
+        
+        """
+        mol = Chem.MolFromSmiles(smiles)
+        
+        colors = [(0, 'orangered'),(0.5,'white'),  (1, 'royalblue')]
+        cmap_name = 'my_custom_colormap'
+        cm = LinearSegmentedColormap.from_list(cmap_name, colors)
+
+        def plot(ax,mol, score, title,figsize=1):
+            png_bytes= showAtomHighlight(mol, score, cm, atom_with_index,rot,line_width,figsize=figsize)
+            image = Image.open(io.BytesIO(png_bytes))
+            ax.imshow(image)
+            ax.axis('off')
+            ax.set_title(title, fontsize=20)
+            
+        _score_scaler = lambda x: score_scaler(x)#np.clip(,0,1)
+                                                                             
+        if 'positive' in score and 'negative' in score:
+            score['positive'] = self.get_atom_score(smiles,score['positive'])
+            score['negative'] = self.get_atom_score(smiles,score['negative'])
+
+            pos_score = score['positive']
+            neg_score = score['negative']
+            tot_score = np.zeros_like(pos_score)
+            tot_score=(1+pos_score-neg_score)/2
+            raw_score = tot_score
+            tot_score = _score_scaler(tot_score)
+            score['total'] = tot_score
+
+            if only_total:
+                fig, ax = plt.subplots(1, 1, figsize=(16, 11))
+                plot(ax,mol, tot_score, ' ',figsize=figsize)
+            else:
+                if locate == 'right':
+                    gs = GridSpec(2,3)
+                    gs0 = gs[0:2, 0:2]
+                    gs1 = gs[0, 2]
+                    gs2 = gs[1, 2]
+                    fig = plt.figure(figsize=(16*figsize, 10*figsize))
+                elif locate == 'bottom':
+                    gs = GridSpec(3,2)
+                    gs0 = gs[0:2, 0:2]
+                    gs1 = gs[2, 0]
+                    gs2 = gs[2, 1]
+                    fig = plt.figure(figsize=(12*figsize, 12*figsize))
+                ax1 = fig.add_subplot(gs0)
+                plot(ax1,mol, tot_score, ' ',figsize=figsize)
+                ax2 = fig.add_subplot(gs1)
+                plot(ax2,mol, pos_score, 'Positive',figsize=figsize*0.5)
+                ax3 = fig.add_subplot(gs2)
+                plot(ax3,mol, neg_score, 'Negative',figsize=figsize*0.5)
+                plt.subplots_adjust(left=0, right=0.9, top=1, bottom=0)
+
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png') 
+                plt.close()
+                buf.seek(0)  
+                image = Image.open(buf)
+
+                fig, ax = plt.subplots(1, 1, figsize=(16, 11))
+                ax.imshow(image)
+                ax.axis('off')
+            if with_colorbar:
+                cb = plt.colorbar(plt.cm.ScalarMappable(cmap=cm), ax=ax, shrink=0.5, pad=0)
+                cb.set_ticks([0,0.25,0.5,0.75,1])
+                if tick_type == 'minmax':
+                    ticks = list(np.round(np.linspace(np.min(raw_score),np.max(raw_score),5),3))
+                cb.set_ticklabels(ticks)
+                cb.ax.tick_params(labelsize=20)
+        else:
+            raw_score = score['positive']
+            score['positive'] = _score_scaler(score['positive'])
+            score['positive'] = self.get_atom_score(smiles,score['positive'])  
+            fig, ax = plt.subplots(1, 1, figsize=(16, 11))
+            plot(ax,mol, score['positive'], ' ',figsize=figsize)
+            if with_colorbar:
+                cb = plt.colorbar(plt.cm.ScalarMappable(cmap=cm), ax=ax, shrink=0.7)
+                cb.set_ticks([0,0.25,0.5,0.75,1])
+                if tick_type == 'minmax':
+                    ticks = list(np.round(np.linspace(np.min(raw_score),np.max(raw_score),5),3))
+                cb.set_ticklabels(ticks)
+                cb.ax.tick_params(labelsize=20)
+        plt.show()
+        return score
+                       
 
 
 def showAtomHighlight(mol,score,color_map,atom_with_index=True,rot=0,line_width=1.0,figsize=1):

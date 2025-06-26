@@ -130,11 +130,31 @@ class Trainer():
         network_manager.eval()
         pred_result = {}
         with torch.no_grad():
-            for loader in tqdm(loader, desc='Calculating scores'):     
+            if len(loader) > 10:
+                loader = tqdm(loader, desc='Calculating scores')
+            for l in loader:  
                 torch.autograd.set_detect_anomaly(False)
-                y_pred = network_manager.step(loader,get_score=True)
+                y_pred = network_manager.step(l,get_score=True)
                 if type(y_pred) is not dict:
                     y_pred = {'prediction':y_pred}
+                if pred_result:
+                    for key in y_pred:
+                        pred_result[key] = torch.cat([pred_result[key],y_pred[key]], dim=0)
+                else:
+                    pred_result = y_pred
+        return pred_result
+    
+    
+    def get_feature(self, network_manager, loader):
+        "Provide the feature of the model. The model which is used for the training should contains the implementation of 'get_feature'."
+        network_manager.eval()
+        pred_result = {}
+        with torch.no_grad():
+            if len(loader) > 10:
+                loader = tqdm(loader, desc='Calculating features')
+            for l in loader:     
+                torch.autograd.set_detect_anomaly(False)
+                y_pred = network_manager.step(l,get_feature=True)
                 if pred_result:
                     for key in y_pred:
                         pred_result[key] = torch.cat([pred_result[key],y_pred[key]], dim=0)

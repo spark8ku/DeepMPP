@@ -11,7 +11,7 @@ class ISAGraphDataset(Dataset):
         self.r2r_edge = [g.edges['r2r'].data['f'] for g in graphs]
         self.i_node = [g.nodes['i_nd'].data['f'] for g in graphs]
         self.d_node = [g.nodes['d_nd'].data['f'] for g in graphs]
-        self.d2d_edge = [g.edges['d2d'].data['dist'] for g in graphs]
+        self.d2d_edge = [g.edges['d2d'].data['f'] for g in graphs]
         self.target = torch.tensor(target).float()
         self.smiles = smiles
 
@@ -98,7 +98,7 @@ class ISAGraphDataset_v1p3(ISAGraphDataset):
             # else:
             #     setattr(self, key + '_i_node', [torch.zeros((g.num_nodes(), 0)) for g in graphs[key]])
             try:
-                setattr(self, key + '_i2i_edge', [g.edges['i2i'].data['dist'] for g in graphs[key]])
+                setattr(self, key + '_i2i_edge', [g.edges['i2i'].data['f'] for g in graphs[key]])
             except KeyError:
                 print(f"Warning: 'i2i' edge type not found in graphs for key '{key}'. Initializing with zeros.")
                 setattr(self, key + '_i2i_edge', [torch.zeros((g.num_edges(), 1)) for g in graphs[key]])
@@ -122,7 +122,7 @@ class ISAGraphDataset_v1p3(ISAGraphDataset):
                 setattr(self, key + '_d_node', [torch.zeros((g.num_nodes(), 1)) for g in graphs[key]])
 
             try:
-                setattr(self, key + '_d2d_edge', [g.edges['d2d'].data['dist'] for g in graphs[key]])
+                setattr(self, key + '_d2d_edge', [g.edges['d2d'].data['f'] for g in graphs[key]])
             except KeyError:
                 print(f"Warning: 'd2d' edge type not found in graphs for key '{key}'. Initializing with zeros.")
                 setattr(self, key + '_d2d_edge', [torch.zeros((g.num_edges(), 1)) for g in graphs[key]])
@@ -281,7 +281,7 @@ class ISAGraphDataset_v1p3(ISAGraphDataset):
             elif key.endswith('_r2r_edge') or key.endswith('_i2i_edge') or key.endswith('_d2d_edge'):
                 batched_data[key] = torch.concat([s[key] for s in samples], dim=0)
             elif key.endswith('_var'):
-                batched_data[key] = torch.concat([s[key] for s in samples], dim=0)
+                batched_data[key] = torch.stack([s[key].reshape(-1) for s in samples], dim=0)
             elif key.endswith('_smiles'):
                 batched_data[key] = [s[key] for s in samples]
             elif key == 'target':

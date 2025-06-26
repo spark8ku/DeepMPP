@@ -229,9 +229,8 @@ class MolAnalyzer_v1p3(MolAnalyzer):
             scores = scores[:-1]
         return scores, kwargs
 
-    def predict(self,*args, dropout=False, **kwargs):
-        # TODO: load the data from the model_path
-        if len(args)+len(kwargs) != len(self.molecule_columns) + len(self.numeric_input_columns):
+    def handle_positional_args(self, args, kwargs):
+        if len(args)+len(kwargs) < len(self.molecule_columns) + len(self.numeric_input_columns):
             raise ValueError(f"Please provide the smiles for {self.molecule_columns} and numeric input for {self.numeric_input_columns}.")
         if len(args) > 0:
             print(f"Positional arguments are provided. Note that arguments should be in the order of {self.molecule_columns} and {self.numeric_input_columns}.")
@@ -244,10 +243,12 @@ class MolAnalyzer_v1p3(MolAnalyzer):
                 kwargs = {self.numeric_input_columns[i]: args[i] for i in range(len(self.numeric_input_columns))}
             else:
                 raise ValueError(f"Please provide the smiles for {self.molecule_columns} and numeric input for {self.numeric_input_columns}.")
+        other_kwargs = {}
         if len(kwargs) >0:
             for k in kwargs.keys():
                 if k not in self.molecule_columns and k not in self.numeric_input_columns:
-                    raise ValueError(f"Unknown key {k}. Please provide the smiles for {self.molecule_columns} or numeric input for {self.numeric_input_columns}.")
+                    other_kwargs[k] = kwargs.pop(k)
+                
             for k in self.molecule_columns:
                 if k not in kwargs:
                     raise ValueError(f"Please provide the smiles for {k}.")
@@ -257,6 +258,11 @@ class MolAnalyzer_v1p3(MolAnalyzer):
         for k in kwargs.keys():
             if type(kwargs[k]) is not list :
                 kwargs[k] = [kwargs[k]]
+        return kwargs, other_kwargs
+
+    def predict(self,*args, dropout=False, **kwargs):
+        # TODO: load the data from the model_path
+        kwargs,_ = self.handle_positional_args(args, kwargs)
 
         kwargs = self.add_dummy_into_input(**kwargs)
         test_loader,result = self.prepare_temp_data(**kwargs)

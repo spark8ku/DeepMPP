@@ -68,6 +68,8 @@ class network(nn.Module):
         r_node, score = self.ISATconv(graph, r_node, r_edge, i_node, d_edge)
         
         h = self.reduce(real_graph, r_node)
+        if kargs.get('get_feature',False):
+            return {'feature':h}
         h = self.linears(h)
 
         if kargs.get('get_score',False):
