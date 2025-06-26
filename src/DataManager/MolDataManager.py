@@ -10,7 +10,7 @@ from dgl.data.utils import save_graphs, load_graphs
 from sklearn.model_selection import train_test_split
 
 from .GraphGenerator.MolGraphGenerator import MolGraphGenerator
-from .Dataset.GraphDataset import GraphDataset, GraphDataset_withSolv
+from .Dataset.GraphDataset import GraphDataset, GraphDataset_withSolv, GraphDataset_v1p3
 
 from D4CMPP.src.utils.scaler import Scaler
 
@@ -111,7 +111,11 @@ class MolDataManager:
                 self.molecule_graphs[col].append(g)
                 self.valid_smiles[col].append(smi)
             return
-        for smi in tqdm(self.molecule_smiles[col],desc=f"Generating {col} graphs"):
+        if len(self.molecule_smiles[col]) < 10:
+            iterator = self.molecule_smiles[col]
+        else:
+            iterator = tqdm(self.molecule_smiles[col], desc=f"Generating {col} graphs")
+        for smi in iterator:
             graphgenerator = self.gg
             if col == 'solvent' and hasattr(self,'gg_solv'):
                 graphgenerator = self.__getattribute__('gg_solv')
@@ -127,6 +131,10 @@ class MolDataManager:
                 invalid_index = np.array(self.valid_smiles[col])==smi
                 for _col in self.molecule_columns:
                     self.valid_smiles[_col] = self.valid_smiles[_col][np.where(~invalid_index)]
+                if hasattr(self, 'numeric_inputs'):
+                    for _col in self.numeric_inputs:
+                        self.numeric_inputs[_col] = self.numeric_inputs[_col][np.where(~invalid_index)]
+
             self.molecule_graphs[col].append(g)
         if len(invalids)>0:
             invalids = pd.concat(invalids) 
@@ -191,6 +199,8 @@ class MolDataManager:
     # Split the dataset into train, val, and test. if the set is given, the dataset will be split according to the set
     def split_data(self):
         if self.set is None:
+            if len(self.whole_dataset) < 10:
+                raise ValueError("The dataset is too small to split. Please provide a larger dataset.")
             train_dataset, test_dataset = train_test_split(self.whole_dataset, test_size=0.1, random_state=self.random_seed)
             train_dataset, val_dataset = train_test_split(train_dataset, test_size=1/9, random_state=self.random_seed)
             self.train_dataset, self.val_dataset, self.test_dataset = self.dataset(),self.dataset(),self.dataset()
@@ -266,7 +276,112 @@ class MolDataManager_withSolv(MolDataManager):
 
     def init_dataset(self):
         return self.dataset(self.molecule_graphs['compound'], self.molecule_graphs['solvent'], self.target_value, self.molecule_smiles['compound'], self.molecule_smiles['solvent'])
-    
+
+class MolDataManager_v1p3(MolDataManager):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.molecule_columns = config.get("molecule_columns", ['compound'])
+        self.numeric_input_columns = config.get("numeric_input_columns", [])
+
+        self.molecule_graphs = {col: [] for col in self.molecule_columns}
+
+    def import_others(self):
+        self.graph_type = 'mol'
+        self.gg =MolGraphGenerator()
+        self.dataset =GraphDataset_v1p3
+        self.unwrapper = self.dataset.unwrapper
+
+    def init_temp_data(self, *args, **kwargs):
+        if len(args)+len(kwargs) != len(self.molecule_columns) + len(self.numeric_input_columns):
+            raise ValueError(f"Please provide the smiles for {self.molecule_columns} and numeric input for {self.numeric_input_columns}.")
+        if len(args) > 0:
+            print(f"Positional arguments are provided. Note that arguments should be in the order of {self.molecule_columns} and {self.numeric_input_columns}.")
+            if len(args) == len(self.molecule_columns) + len(self.numeric_input_columns):
+                kwargs = {self.molecule_columns[i]: args[i] for i in range(len(self.molecule_columns))}
+                kwargs.update({self.numeric_input_columns[i]: args[i + len(self.molecule_columns)] for i in range(len(self.numeric_input_columns))})
+            elif len(args) == len(self.molecule_columns):
+                kwargs.update({self.molecule_columns[i]: args[i] for i in range(len(self.molecule_columns))})
+            elif len(args) == len(self.numeric_input_columns):
+                kwargs.update({self.numeric_input_columns[i]: args[i] for i in range(len(self.numeric_input_columns))})
+            else:
+                raise ValueError(f"Please provide the smiles for {self.molecule_columns} and numeric input for {self.numeric_input_columns}.")
+        if len(kwargs) >0:
+            for k in kwargs.keys():
+                if k not in self.molecule_columns and k not in self.numeric_input_columns:
+                    raise ValueError(f"Unknown key {k}. Please provide the smiles for {self.molecule_columns} or numeric input for {self.numeric_input_columns}.")
+            for k in self.molecule_columns:
+                if k not in kwargs:
+                    raise ValueError(f"Please provide the smiles for {k}.")
+            for k in self.numeric_input_columns:
+                if k not in kwargs:
+                    raise ValueError(f"Please provide the numeric input for {k}.")
+        for k in kwargs.keys():
+            if type(kwargs[k]) is not list :
+                kwargs[k] = [kwargs[k]]
+        inputs = {col: kwargs[col] for col in self.molecule_columns if col in kwargs}
+
+        self.molecule_smiles = {col: np.array(inputs[col]) for col in self.molecule_columns}
+        self.valid_smiles = {col: np.array(inputs[col]) for col in self.molecule_columns}
+        self.numeric_inputs = {col: np.array(kwargs[col]) for col in self.numeric_input_columns if col in kwargs}
+
+        self.molecule_graphs = {col: [] for col in self.molecule_columns}
+        self.target_value = np.zeros((len(self.molecule_smiles[self.molecule_columns[0]]), self.config["target_dim"]))
+        self.gg.verbose = False
+        for col in self.molecule_columns:
+            self.generate_graph(col)
+        result = self.valid_smiles.copy()
+        result.update(self.numeric_inputs)
+        return result
+
+        # self.molecule_smiles['compound'] = np.array(smiles_list)
+        # self.valid_smiles['compound'] = np.array(smiles_list)
+        # self.molecule_graphs={col:[] for col in self.molecule_columns}
+        # self.target_value = np.zeros((len(smiles_list),self.config["target_dim"]))
+        # self.gg.verbose= False
+        # self.generate_graph('compound')
+        # return self.valid_smiles
+
+    def init_dataset(self):
+        if len(self.numeric_input_columns) > 0:
+            if hasattr(self, 'numeric_inputs') and self.numeric_inputs is not None:
+                if len(self.numeric_input_columns) != len(self.numeric_inputs):
+                    raise ValueError(f"Please provide the numeric input for {self.numeric_input_columns}.")
+                numeric_inputs = self.numeric_inputs
+            else:
+                numeric_inputs = {}
+                for col in self.numeric_input_columns:
+                    if col in self.df.columns:
+                        numeric_inputs[col] = torch.tensor(self.df[col].values, dtype=torch.float32)
+                    else:
+                        print(f"Warning: {col} is not in the dataframe, initializing with zeros.")
+                        numeric_inputs[col] = torch.zeros((len(self.molecule_smiles[self.molecule_columns[0]]), 1), dtype=torch.float32)
+        else:
+            numeric_inputs = None
+        return self.dataset(graphs = self.molecule_graphs,
+                            smiles = self.molecule_smiles,
+                            target = self.target_value,
+                            numeric_inputs = numeric_inputs,)
+
+    def split_data(self):
+        if self.set is None:
+            if len(self.whole_dataset) < 10:
+                raise ValueError("The dataset is too small to split. Please provide a larger dataset.")
+            train_dataset, test_dataset = train_test_split(self.whole_dataset, test_size=0.1, random_state=self.random_seed)
+            train_dataset, val_dataset = train_test_split(train_dataset, test_size=1/9, random_state=self.random_seed)
+            self.train_dataset, self.val_dataset, self.test_dataset = self.dataset(),self.dataset(),self.dataset()
+            self.train_dataset.reload(train_dataset)
+            self.val_dataset.reload(val_dataset)
+            self.test_dataset.reload(test_dataset)
+        else:
+            import copy
+            self.train_dataset,self.val_dataset,self.test_dataset = copy.deepcopy(self.whole_dataset),copy.deepcopy(self.whole_dataset),copy.deepcopy(self.whole_dataset)
+
+            self.train_dataset.subDataset([i for i,s in enumerate(self.set) if s=="train"])
+            self.val_dataset.subDataset([i for i,s in enumerate(self.set) if s=="val"])
+            self.test_dataset.subDataset([i for i,s in enumerate(self.set) if s=="test"])
+        print(f"Train: {len(self.train_dataset)}, Val: {len(self.val_dataset)}, Test: {len(self.test_dataset)}")
+
 def hash(s):
     md5_hash = hashlib.md5()
     md5_hash.update(s.encode('utf-8'))

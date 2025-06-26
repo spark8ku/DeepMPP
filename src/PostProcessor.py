@@ -68,8 +68,16 @@ class PostProcessor:
             df = pd.DataFrame(pred,columns=[f"{target}_pred" for target in targets])
             for i,target in enumerate(targets):
                 df[f"{target}_true"] = true[:,i]
-            df['compound'] = smiles
-            df['solvent'] = solvent
+                
+            # OLD
+            if float(self.config.get("version", 1.0)) ==1.0:
+                df['compound'] = smiles
+                df['solvent'] = solvent
+            # NEW
+            elif float(self.config.get("version", 1.0)) >=1.3:
+                for k in smiles.keys():
+                    df[k] = smiles[k]
+
             df['set'] = sets
             if prediction_df is None:
                 prediction_df = df

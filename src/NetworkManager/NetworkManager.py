@@ -132,7 +132,11 @@ class NetworkManager:
     # One step of the training including forward and backward
     def step(self, loader, flag= False, **kargs):
         self.optimizer.zero_grad()
-        x= self.unwrapper(*loader,device=self.device)
+        if type(loader) is dict:
+            loader.update({'device': self.device})
+            x = self.unwrapper(**loader)
+        else:
+            x= self.unwrapper(*loader,device=self.device)
         y= x['target']
         x.update(kargs)
         y_pred = self.network(**x)
@@ -150,7 +154,10 @@ class NetworkManager:
     #  One step of the prediction including forward
     def predict(self,loader):
         self.optimizer.zero_grad()
-        x= self.unwrapper(*loader,device=self.device)
+        if type(loader) is dict:
+            x = self.unwrapper(**loader, device=self.device)
+        else:
+            x= self.unwrapper(*loader,device=self.device)
         y= x['target']
         y_pred = self.network(**x)
         return y_pred, y

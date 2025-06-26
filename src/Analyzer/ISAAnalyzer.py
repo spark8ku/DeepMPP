@@ -109,7 +109,8 @@ class ISAAnalyzer(MolAnalyzer):
             return result
         
     # get the hidden feature of the given list of smiles by its subgroups
-    def get_features(self, smiles_list):
+    
+    def get_feature(self, smiles_list ,feature=None):
         results = {}
         new_smiles = []
         for smiles in smiles_list:
@@ -126,13 +127,13 @@ class ISAAnalyzer(MolAnalyzer):
             results[smiles] = result
 
         if len(new_smiles) > 0:
-            valid_smiles, new_results = self._get_all_features(new_smiles)
+            valid_smiles, new_results = self._get_all_features(new_smiles, feature=feature)
             for smiles, result in zip(valid_smiles, new_results):
                 results[smiles] = result
         return results
     
     
-    def _get_all_features(self, smiles_list):
+    def _get_all_features(self, smiles_list, feature=None):
         temp_loader,valid_smiles = self.prepare_temp_data(smiles_list)
         features = self.tm.get_feature(self.nm, temp_loader)
         features = {k:features[k].detach().cpu().numpy() for k in features.keys()}
@@ -140,11 +141,14 @@ class ISAAnalyzer(MolAnalyzer):
         count=0
         for i, smiles in enumerate(valid_smiles['compound']):
             result = {}
-            frag = self.get_fragment(smiles)
-            result['feature_P'] = features['feature_P'][count:count+len(frag)]
-            if 'feature_N' in features:
-                result['feature_N'] =  features['feature_N'][count:count+len(frag)]
-            count+=len(frag)
+            if feature is not None:
+                result[feature] = features[feature][i]
+            else:
+                frag = self.get_fragment(smiles)
+                result['feature_P'] = features['feature_P'][count:count+len(frag)]
+                if 'feature_N' in features:
+                    result['feature_N'] =  features['feature_N'][count:count+len(frag)]
+                count+=len(frag)
             results.append(result)
             self.save_data(smiles, result)
         return valid_smiles['compound'], results

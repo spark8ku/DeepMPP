@@ -57,8 +57,6 @@ def train(**kwargs):
         (Required args for the transfer learning)
         TRANSFER_PATH: str
                       the path of the directory that contains the model to transfer the learning.
-        data        : str
-        target      : list[str]
         lr_dict     : dict (optional)
                       the dictionary for the learning rate of specific layers. e.g. {'GCNs': 0.0001}
                       you can find the layer names in "model_summary.txt" in the model directory.

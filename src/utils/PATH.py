@@ -115,27 +115,26 @@ def get_model_path(config, make_dir=True):
     else:
         MODEL_DIR = init_MODEL_DIR(config)
 
-    if config['version']=="1.0":
-        if config.get('MODEL_PATH',None) is not None:
-            path = config['MODEL_PATH'].split('/')[-1]
-            path = os.path.join(MODEL_DIR,path)
+    if config.get('MODEL_PATH',None) is not None:
+        path = config['MODEL_PATH'].split('/')[-1]
+        path = os.path.join(MODEL_DIR,path)
+    else:
+        if config.get('TRANSFER_PATH',None) is not None:
+            tf_name = config['TRANSFER_PATH'].split('/')[-1]
+            try:
+                tf_name = "_".join(tf_name.split('_')[:-2])
+            except:
+                pass
+            path = os.path.join(MODEL_DIR,tf_name+"~"+config['network']+"_"+config['data']+'_'+','.join(config['target']))
         else:
-            if config.get('TRANSFER_PATH',None) is not None:
-                tf_name = config['TRANSFER_PATH'].split('/')[-1]
-                try:
-                    tf_name = "_".join(tf_name.split('_')[:-2])
-                except:
-                    pass
-                path = os.path.join(MODEL_DIR,tf_name+"~"+config['network']+"_"+config['data']+'_'+','.join(config['target']))
-            else:
-                path = os.path.join(MODEL_DIR,config['network']+"_"+config['data']+'_'+','.join(config['target']))
-            if 'sculptor_index' in config:
-                path += "_"+''.join([str(i) for i in config['sculptor_index']])
-            path += "_"+time.strftime("%Y%m%d_%H%M%S")
-        if not os.path.exists(path) and make_dir:
-            os.makedirs(path)
-        config["MODEL_PATH"] = path
-        return path
+            path = os.path.join(MODEL_DIR,config['network']+"_"+config['data']+'_'+','.join(config['target']))
+        if 'sculptor_index' in config:
+            path += "_"+''.join([str(i) for i in config['sculptor_index']])
+        path += "_"+time.strftime("%Y%m%d_%H%M%S")
+    if not os.path.exists(path) and make_dir:
+        os.makedirs(path)
+    config["MODEL_PATH"] = path
+    return path
 
 def get_xyz_dir_path(config):
     "Provide the new xyz path for the training (ALIGNN)"

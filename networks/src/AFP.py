@@ -111,7 +111,6 @@ class AttentiveFP(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-
         for l in self.MultiTimeSteps:
             l.reset_parameters()
 

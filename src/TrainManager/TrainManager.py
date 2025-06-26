@@ -8,6 +8,7 @@ from tqdm import tqdm
 class Trainer():
     "The class where the operation of the training is defined"
     def __init__(self,config):
+        self.config = config
         self.model_path=config['MODEL_PATH']
         self.dev=config['device']
         self.max_epoch=config['max_epoch']
@@ -96,16 +97,32 @@ class Trainer():
             network_manager.dropout_on()
         score_list = []
         target_list = []
-        smiles_list = []
-        solvent_list = []
+        # OLD
+        if float(self.config.get('version', '1.0'))==1.0:
+            smiles_list = []
+            solvent_list = []
+        # NEW
+        elif float(self.config.get('version', '1.0'))>=1.3:
+            smiles_list = {}
+            solvent_list = None
         with torch.no_grad():
-            for loader in tqdm(pred_loader, desc='Predicting'):     
+            if len(pred_loader) > 10:
+                pred_loader = tqdm(pred_loader, desc='Predicting', mininterval=1.0)
+            for loader in pred_loader:     
                 torch.autograd.set_detect_anomaly(False)
                 y, y_pred, loss,x = network_manager.step(loader,flag=True)
                 score_list.append(y_pred)
                 target_list.append(y)
-                smiles_list+=x['smiles']
-                solvent_list+=x.get('solv_smiles',[""]*y_pred.shape[0])
+                # OLD
+                if float(self.config.get('version', '1.0'))==1.0:
+                    smiles_list+=x['smiles']
+                    solvent_list+=x.get('solv_smiles',[""]*y_pred.shape[0])
+                # NEW
+                elif float(self.config.get('version', '1.0'))>=1.3:
+                    for k in x.keys():
+                        if k.endswith('_smiles'):
+                            k = k[:-7]  
+                            smiles_list[k] = smiles_list.get(k,[]) + x[k]
         return torch.cat(score_list, dim=0), torch.cat(target_list, dim=0), smiles_list, solvent_list
 
     def get_score(self, network_manager, loader):

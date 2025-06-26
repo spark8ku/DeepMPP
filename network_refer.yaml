@@ -225,3 +225,26 @@ ALIGNNwS:
   description: "GCN"
   version: "1.0"
     
+    
+GAT_Multi:
+  name: "GAT_Multi1"
+  network: GAT_multi_test
+  data_manager_module: MolDataManager
+  data_manager_class: MolDataManager_v1p3
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "GAT Multi"
+  version: "1.3"
+ISAT_Multi:
+  name: "ISAT_Multi1"
+  network: ISAT_multi_test
+  data_manager_module: ISADataManager
+  data_manager_class: ISADataManager_v1p3
+  network_manager_module: NetworkManager
+  network_manager_class: NetworkManager
+  train_manager_module: TrainManager
+  train_manager_class: Trainer
+  description: "ISA Multi"
+  version: "1.3"

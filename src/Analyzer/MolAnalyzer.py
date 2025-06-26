@@ -18,6 +18,7 @@ class MolAnalyzer:
             model_path (str): The path to the model.
             save_result (bool): If True, every calculated result will be saved in the model_path.        
         """
+
         self.model_path = PATH.find_model_path(model_path)
         self.save_result = save_result 
         self.data_path = os.path.join(model_path, 'data')
@@ -27,6 +28,7 @@ class MolAnalyzer:
         config = yaml.load(open(os.path.join(self.model_path,'config.yaml'), 'r'), Loader=yaml.FullLoader)
         config['MODEL_PATH'] = self.model_path
         config['LOAD_PATH'] = self.model_path
+        self.config = config
         self.nm = module_loader.load_network_manager(config)(config, unwrapper = None, temp= True)
         self.dm = module_loader.load_data_manager(config)(config)
         self.tm = module_loader.load_train_manager(config)(config)
@@ -179,6 +181,108 @@ class MolAnalyzer:
                     smiles_list = smiles_list[:-1]
                     score = score[:-1]
         return smiles_list, solvent_list, score
+
+class MolAnalyzer_v1p3(MolAnalyzer):
+    """The class for additional tasks after the training. This is for the version 1.3 and later."""
+    def __init__(self, model_path, save_result = True):
+        super().__init__(model_path, save_result)
+        if self.config.get('version', '1.0') < '1.3':
+            raise ValueError("This class is for the version 1.3 and later. Please use MolAnalyzer instead.")
+
+        self.molecule_columns = self.config.get('molecule_columns', ['compound'])
+        self.numeric_input_columns = self.config.get('numeric_input_columns', [])
+
+    def prepare_temp_data(self, **kwargs):
+
+        result = self.dm.init_temp_data(**kwargs)
+        temp_loader = self.dm.get_Dataloaders(temp=True)
+        return temp_loader, result
+
+    def add_dummy_into_input(self, **kwargs):
+        self.dummy_added = False
+        for k in kwargs.keys():
+            if k in self.molecule_columns:
+                smiles_list = kwargs[k]
+                if len(smiles_list) ==1:
+                    self.dummy_added = True
+                    smiles_list+= ['c1ccccc1O']
+                kwargs[k] = smiles_list
+            elif k in self.numeric_input_columns:
+                if len(kwargs[k]) == 1:
+                    self.dummy_added = True
+                    kwargs[k] += [0.0]
+            else:
+                raise ValueError(f"Unknown key {k}. Please provide the smiles for {self.molecule_columns} or numeric input for {self.numeric_input_columns}.")
+        return kwargs
+
+    def remove_dummy_from_output(self, scores, **kwargs):
+        if self.dummy_added:
+            for k in kwargs.keys():
+                if k in self.molecule_columns:
+                    smiles_list = kwargs[k]
+
+                    if smiles_list[-1]=='c1ccccc1O':
+                        smiles_list = smiles_list[:-1]
+                    kwargs[k] = smiles_list
+                else:
+                    kwargs[k] = kwargs[k][:-1]
+            scores = scores[:-1]
+        return scores, kwargs
+
+    def predict(self,*args, dropout=False, **kwargs):
+        # TODO: load the data from the model_path
+        if len(args)+len(kwargs) != len(self.molecule_columns) + len(self.numeric_input_columns):
+            raise ValueError(f"Please provide the smiles for {self.molecule_columns} and numeric input for {self.numeric_input_columns}.")
+        if len(args) > 0:
+            print(f"Positional arguments are provided. Note that arguments should be in the order of {self.molecule_columns} and {self.numeric_input_columns}.")
+            if len(args) == len(self.molecule_columns) + len(self.numeric_input_columns):
+                kwargs = {self.molecule_columns[i]: args[i] for i in range(len(self.molecule_columns))}
+                kwargs.update({self.numeric_input_columns[i]: args[i + len(self.molecule_columns)] for i in range(len(self.numeric_input_columns))})
+            elif len(args) == len(self.molecule_columns):
+                kwargs = {self.molecule_columns[i]: args[i] for i in range(len(self.molecule_columns))}
+            elif len(args) == len(self.numeric_input_columns):
+                kwargs = {self.numeric_input_columns[i]: args[i] for i in range(len(self.numeric_input_columns))}
+            else:
+                raise ValueError(f"Please provide the smiles for {self.molecule_columns} and numeric input for {self.numeric_input_columns}.")
+        if len(kwargs) >0:
+            for k in kwargs.keys():
+                if k not in self.molecule_columns and k not in self.numeric_input_columns:
+                    raise ValueError(f"Unknown key {k}. Please provide the smiles for {self.molecule_columns} or numeric input for {self.numeric_input_columns}.")
+            for k in self.molecule_columns:
+                if k not in kwargs:
+                    raise ValueError(f"Please provide the smiles for {k}.")
+            for k in self.numeric_input_columns:
+                if k not in kwargs:
+                    raise ValueError(f"Please provide the numeric input for {k}.")
+        for k in kwargs.keys():
+            if type(kwargs[k]) is not list :
+                kwargs[k] = [kwargs[k]]
+
+        kwargs = self.add_dummy_into_input(**kwargs)
+        test_loader,result = self.prepare_temp_data(**kwargs)
+
+        score,_,_,_ = self.tm.predict(self.nm, test_loader, dropout=dropout)
+        if type(score) is torch.Tensor:
+            score = score.detach().cpu().numpy()
+        score, kwargs = self.remove_dummy_from_output( score, **result)
+        if len(score) > 0:
+            score = self.scaler.inverse_transform(score)
+
+        result = {}
+        for i in range(len(score)):
+            input_data = (kwargs[k][i] for k in self.molecule_columns + self.numeric_input_columns)
+            result[tuple(input_data)] = score[i]
+            # TODO: save the data
+
+        # for i,smiles in enumerate(smiles_list):
+        #     if solvent_list is not None:
+        #         result[(smiles,solvent_list[i])] = score[i]
+        #         self.save_data(smiles+"_"+solvent_list[i], {'prediction': score[i]})
+        #     else:
+        #         result[smiles] = score[i]
+        #         self.save_data(smiles, {'prediction': score[i]})
+        return result
+
 
 def mol_with_atom_index( mol ):
     if type(mol) is str:
